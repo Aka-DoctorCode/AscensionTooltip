@@ -1,0 +1,7 @@
+## Interface: 110207
+## Title: AscensionTooltip
+## Notes: Plugin for Talent Tooltip Enhancer
+## Author: AkaDoctorCode
+## Version: 2.0.0
+## SavedVariables: AscensionTooltipDB
+AscensionTooltip.lua
