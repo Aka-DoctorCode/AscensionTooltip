@@ -63,7 +63,7 @@ local blacklistedTalents = {
 local talentCache = {}
 
 -- =========================================================================
--- MAIN LOGIC
+-- HELPER FUNCTIONS
 -- =========================================================================
 
 local function UpdateTalentCache()
@@ -107,29 +107,47 @@ local function RGBToHex(r, g, b)
     return string.format("|cff%02x%02x%02x", r*255, g*255, b*255)
 end
 
--- Apply Tooltip Styling
+-- Check if a specific string already exists in the tooltip lines
+-- This is the ultimate guard against duplicates
+local function IsLineInTooltip(tooltip, textPart)
+    if not textPart or textPart == "" then return false end
+    local tooltipName = tooltip:GetName()
+    if not tooltipName then return false end -- Safety check for unnamed frames
+
+    for i = 1, tooltip:NumLines() do
+        local line = _G[tooltipName.."TextLeft"..i]
+        local text = line and line:GetText()
+        if text and string.find(text, textPart, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+-- =========================================================================
+-- TOOLTIP STYLING & LOGIC
+-- =========================================================================
+
+-- Apply Tooltip Styling (Optimized)
 local function ApplyTooltipStyling(tooltip)
     if not tooltip or not db then return end
 
-    -- 1. Clamp to Screen
+    -- 1. Clamp & Colors
     if db.ClampToScreen then
         tooltip:SetClampedToScreen(true)
     end
 
-    -- 2. SOLID BACKGROUND LOGIC (To achieve 100% opacity)
     local bg = db.BackgroundColor
     local bd = db.BorderColor
     local alpha = (db.TooltipOpacity or 90) / 100
 
-    -- Create our own solid texture if it doesn't exist
+    -- Custom Solid Background
     if not tooltip.SolidBg then
         tooltip.SolidBg = tooltip:CreateTexture(nil, "BACKGROUND")
-        -- Inset slightly to not cover the borders (adjust -4/4 if needed)
         tooltip.SolidBg:SetPoint("TOPLEFT", tooltip, "TOPLEFT", 4, -4)
         tooltip.SolidBg:SetPoint("BOTTOMRIGHT", tooltip, "BOTTOMRIGHT", -4, 4)
     end
 
-    -- Apply color to our solid texture
     if bg then
         tooltip.SolidBg:SetColorTexture(bg.r, bg.g, bg.b, alpha)
         tooltip.SolidBg:Show()
@@ -137,82 +155,114 @@ local function ApplyTooltipStyling(tooltip)
         tooltip.SolidBg:Hide()
     end
 
-    -- Handle Default WoW Textures (NineSlice)
+    -- Hide native backgrounds
     if tooltip.NineSlice then
-        -- Hide the default center texture (make it invisible) so it doesn't interfere
         tooltip.NineSlice:SetCenterColor(0, 0, 0, 0)
-        
-        -- Apply Border Color
         if bd then
             tooltip.NineSlice:SetBorderColor(bd.r, bd.g, bd.b, bd.a or 1.0)
         end
-    else
-        -- Fallback for legacy frames: Try to hide backdrop bg or tint it
-        if bg and tooltip.SetBackdropColor then
-            -- Make legacy background invisible too, relying on SolidBg
-            tooltip:SetBackdropColor(0, 0, 0, 0)
-        end
+    elseif tooltip.SetBackdropColor then
+        tooltip:SetBackdropColor(0, 0, 0, 0)
         if bd and tooltip.SetBackdropBorderColor then
             tooltip:SetBackdropBorderColor(bd.r, bd.g, bd.b, bd.a or 1.0)
         end
     end
 
-    -- Get font to re-apply
+    -- 2. Font & Width
     local fontName, fontHeight, fontFlags
     if GameTooltipTextLeft1 then
         fontName, fontHeight, fontFlags = GameTooltipTextLeft1:GetFont()
     end
-
-    -- MAX HEIGHT LOGIC
-    local maxPercent = db.MaxHeightPercent or 70
+    
+    local targetWidth = db.TooltipWidth or 350
     local screenHeight = UIParent:GetHeight()
-    local maxHeight = screenHeight * (maxPercent / 100)
+    local maxHeight = screenHeight * ((db.MaxHeightPercent or 70) / 100)
 
-    -- Helper to force layout updates
-    local function ForceLayout(width)
-        tooltip:SetMinimumWidth(width)
+    -- Optimization: Apply minimum width once
+    if tooltip:GetMinimumWidth() ~= targetWidth then
+        tooltip:SetMinimumWidth(targetWidth)
+    end
+
+    -- Helper to apply font/width to lines
+    local function ApplyTextStyles(width)
         for i = 1, tooltip:NumLines() do
             local left = _G[tooltip:GetName().."TextLeft"..i]
             local right = _G[tooltip:GetName().."TextRight"..i]
             
             if left then
-                left:SetWidth(width - 25) -- Safe margin
+                -- Only modify if different to reduce layout trashing
+                if left:GetWidth() ~= (width - 20) then
+                    left:SetWidth(width - 20)
+                end
                 left:SetWordWrap(true)
                 if db.FontSize and fontName then
+                    -- Getting font object is expensive, just set it
                     left:SetFont(fontName, db.FontSize, fontFlags)
                 end
             end
+            
             if right and db.FontSize and fontName then
                 right:SetFont(fontName, db.FontSize, fontFlags)
             end
         end
-        tooltip:Show() -- Force recalculation
     end
 
-    -- 3. Step 1: Apply user configured width
-    local currentWidth = db.TooltipWidth or 350
-    ForceLayout(currentWidth)
+    -- Apply base style
+    ApplyTextStyles(targetWidth)
 
-    -- 4. Step 2: Check max height overflow
+    -- 3. Smart Height Check (Debounced/Optimized)
+    -- We only force a Show/Recalculate if we suspect an overflow
+    -- Using GetHeight() immediately after adding lines usually returns the new height
     local currentHeight = tooltip:GetHeight()
     
     if currentHeight > maxHeight and currentHeight > 0 then
-        local targetRatio = currentHeight / maxHeight
-        local newWidth = currentWidth * targetRatio * 1.1
+        local ratio = currentHeight / maxHeight
         
-        local maxScreenWidth = UIParent:GetWidth() * 0.90
-        if newWidth > maxScreenWidth then newWidth = maxScreenWidth end
+        -- Only widen if significantly over (5% tolerance) to prevent jitter
+        if ratio > 1.05 then
+            local newWidth = targetWidth * ratio * 1.05
+            
+            -- Clamp max width
+            local maxScreenWidth = UIParent:GetWidth() * 0.6
+            if newWidth > maxScreenWidth then newWidth = maxScreenWidth end
 
-        if newWidth > currentWidth then
-            ForceLayout(newWidth)
+            if newWidth > targetWidth then
+                tooltip:SetMinimumWidth(newWidth)
+                ApplyTextStyles(newWidth)
+                -- Only call Show() if we actually changed dimensions
+                tooltip:Show()
+            end
         end
+    else
+        tooltip:Show()
+    end
+end
+
+-- Hook to clean up
+local function HookTooltipClear(tooltip)
+    if not tooltip.AscensionHooked then
+        tooltip:HookScript("OnTooltipCleared", function(self)
+            self.AscensionLastSpell = nil
+            if self.SolidBg then 
+                self.SolidBg:Hide()
+            end
+        end)
+        tooltip.AscensionHooked = true
     end
 end
 
 local function SearchTreeCached(spellID, tooltip)
     if not db then return end
     
+    -- 1. Fast ID Check: Prevents processing the same ID twice on same frame
+    if tooltip.AscensionLastSpell == spellID then
+        return
+    end
+
+    HookTooltipClear(tooltip)
+
     if db.HideInCombat and InCombatLockdown() then
+        tooltip.AscensionLastSpell = spellID
         ApplyTooltipStyling(tooltip)
         return
     end
@@ -230,6 +280,10 @@ local function SearchTreeCached(spellID, tooltip)
     end
 
     local nameHex = RGBToHex(db.TalentNameColor.r, db.TalentNameColor.g, db.TalentNameColor.b)
+    local descHex = RGBToHex(db.TalentDescColor.r, db.TalentDescColor.g, db.TalentDescColor.b)
+    
+    -- Local tracking for THIS execution to handle duplicate cache entries (same name, diff ID)
+    local namesProcessedThisRun = {} 
 
     for talentSpellID, talentInfo in pairs(talentCache) do
         local isNotBlacklisted = not (blacklistedTalents[spellID] and blacklistedTalents[spellID][talentSpellID])
@@ -245,11 +299,28 @@ local function SearchTreeCached(spellID, tooltip)
         end
 
         if (isMissingName or (isNotBlacklisted and nameMatch and descMatch)) then
-            local tooltipText = "\n" .. nameHex .. talentInfo.name .. ":|r " .. talentInfo.desc .. "\n"
-            tooltip:AddLine(tooltipText, db.TalentDescColor.r, db.TalentDescColor.g, db.TalentDescColor.b, true)
+            
+            -- 2. DUPLICATE PROTECTION:
+            -- Check 1: Have we already added this talent name in THIS loop? (Handles multiple IDs for same talent)
+            -- Check 2: Is it already in the tooltip text from a previous update?
+            if not namesProcessedThisRun[talentInfo.name] and not IsLineInTooltip(tooltip, talentInfo.name) then
+                
+                tooltip:AddLine(" ") -- Spacer
+
+                -- Sanitize description colors
+                local safeDesc = string.gsub(talentInfo.desc, "|r", "|r" .. descHex)
+                local tooltipText = nameHex .. talentInfo.name .. ":|r " .. descHex .. safeDesc .. "|r"
+                
+                tooltip:AddLine(tooltipText, 1, 1, 1, true)
+                
+                -- Mark as processed so we don't add it again if another ID matches
+                namesProcessedThisRun[talentInfo.name] = true
+            end
         end
     end
     
+    -- Mark processed
+    tooltip.AscensionLastSpell = spellID
     ApplyTooltipStyling(tooltip)
 end
 
@@ -272,7 +343,6 @@ local function CreateCheckbox(name, parent, labelText, dbKey)
     return check
 end
 
--- Slider with +/- Buttons
 local function CreateSlider(name, parent, min, max, step, labelText, dbKey)
     local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
     slider:SetMinMaxValues(min, max)
@@ -299,7 +369,6 @@ local function CreateSlider(name, parent, min, max, step, labelText, dbKey)
         end
     end)
 
-    -- Minus Button [-]
     local btnMinus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     btnMinus:SetSize(20, 20)
     btnMinus:SetText("-")
@@ -311,7 +380,6 @@ local function CreateSlider(name, parent, min, max, step, labelText, dbKey)
         slider:SetValue(newVal)
     end)
 
-    -- Plus Button [+]
     local btnPlus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     btnPlus:SetSize(20, 20)
     btnPlus:SetText("+")
@@ -389,33 +457,30 @@ local function InitOptionsPanel()
     subText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     subText:SetText("Customize tooltip size and appearance.")
 
-    -- 1. Tooltip Width
     local sliderWidth = CreateSlider("AT_SliderWidth", OptionsPanel, 200, 600, 10, "Tooltip Width", "TooltipWidth")
     sliderWidth:SetPoint("TOPLEFT", subText, "BOTTOMLEFT", 25, -30)
 
-    -- 2. Max Height Percent
     local sliderHeight = CreateSlider("AT_SliderHeight", OptionsPanel, 30, 95, 5, "Max Screen Height %", "MaxHeightPercent")
     sliderHeight:SetPoint("TOPLEFT", sliderWidth, "BOTTOMLEFT", 0, -40)
 
-    -- 3. Font Size
     local sliderFont = CreateSlider("AT_SliderFont", OptionsPanel, 8, 24, 1, "Font Size", "FontSize")
     sliderFont:SetPoint("TOPLEFT", sliderHeight, "BOTTOMLEFT", 0, -40)
 
-    -- 4. Background Opacity
     local sliderOpacity = CreateSlider("AT_SliderOpacity", OptionsPanel, 0, 100, 5, "Background Opacity %", "TooltipOpacity")
     sliderOpacity:SetPoint("TOPLEFT", sliderFont, "BOTTOMLEFT", 0, -40)
 
-    local chkCombat = CreateCheckbox("AT_ChkCombat", OptionsPanel, "Hide Extra Info in Combat", "HideInCombat")
+    local chkClamp = CreateCheckbox("AT_ChkClamp", OptionsPanel, "Clamp to Screen", "ClampToScreen")
     chkClamp:SetPoint("TOPLEFT", sliderOpacity, "BOTTOMLEFT", -25, -20)
-    
-    -- TEXT COLORS
+
+    local chkCombat = CreateCheckbox("AT_ChkCombat", OptionsPanel, "Hide Extra Info in Combat", "HideInCombat")
+    chkCombat:SetPoint("TOPLEFT", chkClamp, "BOTTOMLEFT", 0, -10)
+
     local cpNameColor = CreateColorPicker("AT_ColorName", OptionsPanel, "Talent Name Color", "TalentNameColor", true)
     cpNameColor:SetPoint("TOPLEFT", chkCombat, "BOTTOMLEFT", 0, -30)
 
     local cpDescColor = CreateColorPicker("AT_ColorDesc", OptionsPanel, "Talent Description Color", "TalentDescColor", true)
     cpDescColor:SetPoint("TOPLEFT", cpNameColor, "BOTTOMLEFT", 0, -15)
     
-    -- BACKGROUND COLORS
     local cpBgColor = CreateColorPicker("AT_ColorBg", OptionsPanel, "Tooltip Background Color", "BackgroundColor", false)
     cpBgColor:SetPoint("TOPLEFT", cpDescColor, "BOTTOMLEFT", 0, -30)
 
@@ -433,7 +498,6 @@ local function InitOptionsPanel()
     end)
 end
 
--- Registration Logic: Priorities Settings (Modern) > Legacy to avoid duplicates
 if Settings and Settings.RegisterCanvasLayoutCategory then
     local category = Settings.RegisterCanvasLayoutCategory(OptionsPanel, "Ascension Tooltip")
     Settings.RegisterAddOnCategory(category)
@@ -480,7 +544,9 @@ if TooltipDataProcessor then
         elseif data.type == Enum.TooltipDataType.Macro and data.lines[1].tooltipID and IsSpellKnownOrOverridesKnown(data.lines[1].tooltipID) then
             SearchTreeCached(data.lines[1].tooltipID, tooltip)
         else
-            ApplyTooltipStyling(tooltip) 
+            if tooltip.AscensionLastSpell then
+               ApplyTooltipStyling(tooltip) 
+            end
         end
     end)
 end
