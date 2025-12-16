@@ -577,7 +577,7 @@ local function InitOptionsPanel()
         ReloadUI()
     end)
     
-    OptionsPanel:SetScript("OnShow", UpdateAllOptions)
+    OptionsPanel:HookScript("OnShow", UpdateAllOptions)
 end
 
 if Settings and Settings.RegisterCanvasLayoutCategory then
@@ -590,16 +590,19 @@ end
 InitOptionsPanel()
 
 local f = CreateFrame("Frame")
+f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("TRAIT_CONFIG_UPDATED")
 
 f:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_LOGIN" then
+    local arg1 = ...
+    if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         if not AscensionTooltipDB then 
             AscensionTooltipDB = CopyTable(DEFAULTS) 
         end
         db = AscensionTooltipDB
         
+        -- Merge Defaults
         for k, v in pairs(DEFAULTS) do
             if db[k] == nil then 
                 if type(v) == "table" then 
@@ -610,7 +613,11 @@ f:SetScript("OnEvent", function(self, event, ...)
             end
         end
         
+        -- Sync Options UI
         UpdateAllOptions()
+        
+    elseif event == "PLAYER_LOGIN" then
+        -- Ensure cache is updated after login
         C_Timer.After(1, UpdateTalentCache)
         
     elseif event == "TRAIT_CONFIG_UPDATED" then
