@@ -354,15 +354,28 @@ end
 local OptionsPanel = CreateFrame("Frame", "AscensionTooltipOptions", UIParent)
 OptionsPanel.name = "Ascension Tooltip"
 
+local optionsRegistry = {}
+
+local function UpdateAllOptions()
+    if not db then return end
+    for _, widget in ipairs(optionsRegistry) do
+        if widget.UpdateState then widget:UpdateState() end
+    end
+end
+
 local function CreateCheckbox(name, parent, labelText, dbKey)
     local check = CreateFrame("CheckButton", name, parent, "ChatConfigCheckButtonTemplate")
     _G[name .. "Text"]:SetText(labelText)
     check:SetScript("OnClick", function(self)
         db[dbKey] = self:GetChecked()
     end)
-    check:HookScript("OnShow", function(self)
+    
+    check.UpdateState = function(self)
         if db then self:SetChecked(db[dbKey]) end
-    end)
+    end
+    table.insert(optionsRegistry, check)
+    
+    check:HookScript("OnShow", check.UpdateState)
     return check
 end
 
@@ -385,12 +398,16 @@ local function CreateSlider(name, parent, min, max, step, labelText, dbKey)
         valueText:SetText(string.format("%.0f", val))
         db[dbKey] = val
     end)
-    slider:HookScript("OnShow", function(self)
+
+    slider.UpdateState = function(self)
         if db then
             self:SetValue(db[dbKey])
             valueText:SetText(string.format("%.0f", db[dbKey]))
         end
-    end)
+    end
+    table.insert(optionsRegistry, slider)
+
+    slider:HookScript("OnShow", slider.UpdateState)
 
     local btnMinus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     btnMinus:SetSize(20, 20)
@@ -462,12 +479,16 @@ local function CreateColorPicker(name, parent, labelText, dbKey, useOpacity)
         }
         ColorPickerFrame:SetupColorPickerAndShow(info)
     end)
-    frame:HookScript("OnShow", function()
+
+    frame.UpdateState = function(self)
         if db then
             local t = db[dbKey]
             swatch:SetColorTexture(t.r, t.g, t.b, t.a or 1.0)
         end
-    end)
+    end
+    table.insert(optionsRegistry, frame)
+
+    frame:HookScript("OnShow", frame.UpdateState)
     return frame
 end
 
@@ -490,9 +511,12 @@ local function CreateCycleButton(name, parent, labelText, dbKey, options)
         self:SetText(options[currentIndex])
     end)
 
-    frame:HookScript("OnShow", function(self)
+    frame.UpdateState = function(self)
         if db then self:SetText(db[dbKey] or options[1]) end
-    end)
+    end
+    table.insert(optionsRegistry, frame)
+
+    frame:HookScript("OnShow", frame.UpdateState)
 
     return frame
 end
@@ -549,8 +573,11 @@ local function InitOptionsPanel()
     btnReset:SetScript("OnClick", function()
         AscensionTooltipDB = CopyTable(DEFAULTS)
         db = AscensionTooltipDB
+        UpdateAllOptions()
         ReloadUI()
     end)
+    
+    OptionsPanel:SetScript("OnShow", UpdateAllOptions)
 end
 
 if Settings and Settings.RegisterCanvasLayoutCategory then
@@ -583,6 +610,7 @@ f:SetScript("OnEvent", function(self, event, ...)
             end
         end
         
+        UpdateAllOptions()
         C_Timer.After(1, UpdateTalentCache)
         
     elseif event == "TRAIT_CONFIG_UPDATED" then
@@ -604,5 +632,6 @@ if TooltipDataProcessor then
             end
         end
     end)
-endprint("AscensionTooltip: Loaded (Debug)")
 end
+
+print("AscensionTooltip: Loaded (Debug)")
