@@ -605,3 +605,4 @@ if TooltipDataProcessor then
         end
     end)
 endprint("AscensionTooltip: Loaded (Debug)")
+end
