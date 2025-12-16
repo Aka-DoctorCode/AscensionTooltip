@@ -12,6 +12,8 @@ local DEFAULTS = {
     HideInCombat = false,
     MaxHeightPercent = 70,
     TooltipOpacity = 90,
+    ShowOnModifier = "None",    -- None, Shift, Alt, Ctrl, Cmd
+    DisableExtraInfo = false,
     -- Text Colors
     TalentNameColor = {r=0.2, g=1.0, b=1.0, a=1.0},
     TalentDescColor = {r=1.0, g=0.82, b=0.0, a=1.0},
@@ -266,6 +268,28 @@ local function SearchTreeCached(spellID, tooltip)
         return
     end
 
+    -- 1.1 Disable Extra Info Option
+    if db.DisableExtraInfo then
+        tooltip.AscensionLastSpell = spellID
+        ApplyTooltipStyling(tooltip)
+        return
+    end
+
+    -- 1.2 Modifier Key Check
+    if db.ShowOnModifier and db.ShowOnModifier ~= "None" then
+        local pressed = false
+        if db.ShowOnModifier == "Shift" and IsShiftKeyDown() then pressed = true end
+        if db.ShowOnModifier == "Alt" and IsAltKeyDown() then pressed = true end
+        if db.ShowOnModifier == "Ctrl" and IsControlKeyDown() then pressed = true end
+        if db.ShowOnModifier == "Cmd" and IsMetaKeyDown() then pressed = true end
+        
+        if not pressed then
+            tooltip.AscensionLastSpell = spellID
+            ApplyTooltipStyling(tooltip)
+            return
+        end
+    end
+
     local spellInfo = C_Spell.GetSpellInfo(spellID)
     if not spellInfo then return end
     
@@ -447,6 +471,32 @@ local function CreateColorPicker(name, parent, labelText, dbKey, useOpacity)
     return frame
 end
 
+local function CreateCycleButton(name, parent, labelText, dbKey, options)
+    local frame = CreateFrame("Button", name, parent, "UIPanelButtonTemplate")
+    frame:SetSize(100, 22)
+    
+    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    label:SetPoint("LEFT", frame, "RIGHT", 10, 0)
+    label:SetText(labelText)
+
+    frame:SetScript("OnClick", function(self)
+        local currentIndex = 1
+        for i, opt in ipairs(options) do
+            if db[dbKey] == opt then currentIndex = i break end
+        end
+        currentIndex = currentIndex + 1
+        if currentIndex > #options then currentIndex = 1 end
+        db[dbKey] = options[currentIndex]
+        self:SetText(options[currentIndex])
+    end)
+
+    frame:HookScript("OnShow", function(self)
+        if db then self:SetText(db[dbKey] or options[1]) end
+    end)
+
+    return frame
+end
+
 local function InitOptionsPanel()
     local title = OptionsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
@@ -474,8 +524,14 @@ local function InitOptionsPanel()
     local chkCombat = CreateCheckbox("AT_ChkCombat", OptionsPanel, "Hide Extra Info in Combat", "HideInCombat")
     chkCombat:SetPoint("TOPLEFT", chkClamp, "BOTTOMLEFT", 0, -10)
 
+    local chkDisableInfo = CreateCheckbox("AT_ChkDisableInfo", OptionsPanel, "Disable Extra Info (Visuals Only)", "DisableExtraInfo")
+    chkDisableInfo:SetPoint("TOPLEFT", chkCombat, "BOTTOMLEFT", 0, -10)
+    
+    local btnModifier = CreateCycleButton("AT_BtnModifier", OptionsPanel, "Show Info Modifier Key", "ShowOnModifier", {"None", "Shift", "Alt", "Ctrl", "Cmd"})
+    btnModifier:SetPoint("TOPLEFT", chkDisableInfo, "BOTTOMLEFT", 0, -15)
+
     local cpNameColor = CreateColorPicker("AT_ColorName", OptionsPanel, "Talent Name Color", "TalentNameColor", true)
-    cpNameColor:SetPoint("TOPLEFT", chkCombat, "BOTTOMLEFT", 0, -30)
+    cpNameColor:SetPoint("TOPLEFT", btnModifier, "BOTTOMLEFT", 0, -30)
 
     local cpDescColor = CreateColorPicker("AT_ColorDesc", OptionsPanel, "Talent Description Color", "TalentDescColor", true)
     cpDescColor:SetPoint("TOPLEFT", cpNameColor, "BOTTOMLEFT", 0, -15)
