@@ -1,6 +1,5 @@
 --[[ 
     AscensionTooltip
-    Based on HarreksAdvancedTooltips
 ]]
 
 local ADDON_NAME = "AscensionTooltip"
@@ -549,4 +548,4 @@ if TooltipDataProcessor then
             end
         end
     end)
-end
+endprint("AscensionTooltip: Loaded (Debug)")

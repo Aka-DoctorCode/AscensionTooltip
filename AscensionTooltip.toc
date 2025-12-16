@@ -2,6 +2,6 @@
 ## Title: AscensionTooltip
 ## Notes: Plugin for Talent Tooltip Enhancer
 ## Author: AkaDoctorCode
-## Version: 2.5.0
+## Version: 2.5.1
 ## SavedVariables: AscensionTooltipDB
 AscensionTooltip.lua
