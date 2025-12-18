@@ -1,7 +1,17 @@
-## Interface: 110207
-## Title: AscensionTooltip
-## Notes: Plugin for Talent Tooltip Enhancer
-## Author: AkaDoctorCode
-## Version: 2.7.0
-## SavedVariables: AscensionTooltipDB
+Interface: 112070
+Title: AscensionTooltip
+Notes: Plugin for Talent Tooltip Enhancer.
+Author: AkaDoctorCode
+Version: 3.0.0
+SavedVariables: AscensionTooltipDB
+
+Libs\LibStub\LibStub.lua
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+
 AscensionTooltip.lua

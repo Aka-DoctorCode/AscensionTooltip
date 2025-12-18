@@ -1,77 +1,275 @@
 --[[ 
-    AscensionTooltip
+    AscensionTooltip v3.0.0
+    Migración completa a Ace3 Framework
 ]]
 
 local ADDON_NAME = "AscensionTooltip"
-
--- 1. CONFIGURATION
-local DEFAULTS = {
-    TooltipWidth = 350,
-    FontSize = 12,
-    ClampToScreen = true,
-    HideInCombat = false,
-    MaxHeightPercent = 70,
-    TooltipOpacity = 90,
-    ShowOnModifier = "None",    -- None, Shift, Alt, Ctrl, Cmd
-    DisableExtraInfo = false,
-    -- Text Colors
-    TalentNameColor = {r=0.2, g=1.0, b=1.0, a=1.0},
-    TalentDescColor = {r=1.0, g=0.82, b=0.0, a=1.0},
-    -- Background/Border Colors
-    BackgroundColor = {r=0.05, g=0.05, b=0.05}, 
-    BorderColor = {r=0.8, g=0.8, b=0.8, a=1.0}
-}
-
-local db
+AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0")
 
 -- =========================================================================
--- DATA (Talents and Spells)
+-- CONFIGURACIÓN POR DEFECTO (AceDB)
 -- =========================================================================
-
-local talentsMissingName = {
-    [370960] = { [377082] = true },
+local defaults = {
+    profile = {
+        TooltipWidth = 350,
+        FontSize = 12,
+        ClampToScreen = true,
+        HideInCombat = false,
+        MaxHeightPercent = 70,
+        TooltipOpacity = 90,
+        ShowOnModifier = "None",    -- None, Shift, Alt, Ctrl, Cmd
+        DisableExtraInfo = false,
+        -- Text Colors
+        TalentNameColor = {r=0.2, g=1.0, b=1.0, a=1.0},
+        TalentDescColor = {r=1.0, g=0.82, b=0.0, a=1.0},
+        -- Background/Border Colors
+        BackgroundColor = {r=0.05, g=0.05, b=0.05}, 
+        BorderColor = {r=0.8, g=0.8, b=0.8, a=1.0}
+    }
 }
 
-local replacedSpells = {
-    [431443] = 361469,
-    [467307] = 107428,
-    [157153] = 5394,
-    [443454] = 378081,
-    [200758] = 53,
-    [388667] = 686,
-}
-
+-- =========================================================================
+-- DATOS ESTÁTICOS
+-- =========================================================================
+local talentsMissingName = { [370960] = { [377082] = true } }
+local replacedSpells = { [431443] = 361469, [467307] = 107428, [157153] = 5394, [443454] = 378081, [200758] = 53, [388667] = 686 }
 local blacklistedTalents = {
-    [124682] = { [116680] = true, [388491] = true },
-    [115151] = { [116680] = true, [388491] = true },
-    [116670] = { [116680] = true, [388491] = true },
-    [107428] = { [116680] = true, [388491] = true },
-    [191837] = { [116680] = true, [388491] = true },
-    [322101] = { [116680] = true, [388491] = true },
-    [774]    = { [33891] = true },
-    [48438]  = { [33891] = true },
-    [8936]   = { [33891] = true },
-    [5176]   = { [33891] = true },
-    [339]    = { [33891] = true },
-    [102693] = { [393371] = true },
-    [188389] = { [262303] = true, [378270] = true, [114050] = true },
-    [188443] = { [262303] = true },
-    [188196] = { [262303] = true },
-    [196840] = { [262303] = true },
-    [51505]  = { [262303] = true },
+    [124682] = { [116680] = true, [388491] = true }, [115151] = { [116680] = true, [388491] = true },
+    [116670] = { [116680] = true, [388491] = true }, [107428] = { [116680] = true, [388491] = true },
+    [191837] = { [116680] = true, [388491] = true }, [322101] = { [116680] = true, [388491] = true },
+    [774] = { [33891] = true }, [48438] = { [33891] = true }, [8936] = { [33891] = true },
+    [5176] = { [33891] = true }, [339] = { [33891] = true }, [102693] = { [393371] = true },
+    [188389] = { [262303] = true, [378270] = true, [114050] = true }, [188443] = { [262303] = true },
+    [188196] = { [262303] = true }, [196840] = { [262303] = true }, [51505] = { [262303] = true },
 }
 
 local talentCache = {}
 
 -- =========================================================================
--- HELPER FUNCTIONS
+-- FUNCIONES AUXILIARES
 -- =========================================================================
 
-local function UpdateTalentCache()
+local function RGBToHex(r, g, b)
+    return string.format("|cff%02x%02x%02x", (r or 1)*255, (g or 1)*255, (b or 1)*255)
+end
+
+local function IsLineInTooltip(tooltip, textPart)
+    if not textPart or textPart == "" then return false end
+    local tooltipName = tooltip:GetName()
+    if not tooltipName then return false end
+    for i = 1, tooltip:NumLines() do
+        local line = _G[tooltipName.."TextLeft"..i]
+        local text = line and line:GetText()
+        if text and string.find(text, textPart, 1, true) then return true end
+    end
+    return false
+end
+
+-- =========================================================================
+-- LÓGICA DE VISUALIZACIÓN
+-- =========================================================================
+
+function AscensionTooltip:ApplyTooltipStyling(tooltip)
+    local db = self.db.profile
+    if not tooltip or not db then return end
+
+    if db.ClampToScreen then tooltip:SetClampedToScreen(true) end
+
+    local alpha = (db.TooltipOpacity or 90) / 100
+    if not tooltip.SolidBg then
+        tooltip.SolidBg = tooltip:CreateTexture(nil, "BACKGROUND")
+        tooltip.SolidBg:SetPoint("TOPLEFT", tooltip, "TOPLEFT", 4, -4)
+        tooltip.SolidBg:SetPoint("BOTTOMRIGHT", tooltip, "BOTTOMRIGHT", -4, 4)
+    end
+    tooltip.SolidBg:SetColorTexture(db.BackgroundColor.r, db.BackgroundColor.g, db.BackgroundColor.b, alpha)
+    tooltip.SolidBg:Show()
+
+    if tooltip.NineSlice then
+        tooltip.NineSlice:SetCenterColor(0, 0, 0, 0)
+        tooltip.NineSlice:SetBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
+    elseif tooltip.SetBackdropColor then
+        tooltip:SetBackdropColor(0, 0, 0, 0)
+        tooltip:SetBackdropBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
+    end
+
+    local fontName, _, fontFlags = GameTooltipTextLeft1:GetFont()
+    local targetWidth = db.TooltipWidth or 350
+    local screenHeight = UIParent:GetHeight()
+    local maxHeight = screenHeight * (db.MaxHeightPercent / 100)
+
+    tooltip:SetMinimumWidth(targetWidth)
+
+    local function ApplyTextStyles(width)
+        for i = 1, tooltip:NumLines() do
+            local left = _G[tooltip:GetName().."TextLeft"..i]
+            if left then
+                left:SetWidth(width - 20)
+                left:SetWordWrap(true)
+                left:SetFont(fontName, db.FontSize, fontFlags)
+            end
+        end
+    end
+
+    ApplyTextStyles(targetWidth)
+    tooltip:Show()
+
+    local currentHeight = tooltip:GetHeight()
+    if currentHeight > maxHeight and currentHeight > 0 then
+        local ratio = currentHeight / maxHeight
+        if ratio > 1.05 then
+            local newWidth = math.min(UIParent:GetWidth() * 0.6, targetWidth * ratio * 1.05)
+            tooltip:SetMinimumWidth(newWidth)
+            ApplyTextStyles(newWidth)
+            tooltip:Show()
+        end
+    end
+end
+
+-- =========================================================================
+-- MENÚ DE OPCIONES (AceConfig)
+-- =========================================================================
+
+function AscensionTooltip:GetOptions()
+    return {
+        name = "Ascension Tooltip",
+        handler = AscensionTooltip,
+        type = "group",
+        args = {
+            general = {
+                name = "General Settings",
+                type = "group",
+                inline = true,
+                order = 1,
+                args = {
+                    width = {
+                        name = "Tooltip Width",
+                        type = "range", min = 200, max = 600, step = 1,
+                        get = function() return self.db.profile.TooltipWidth end,
+                        set = function(_, v) self.db.profile.TooltipWidth = v end,
+                        order = 1,
+                    },
+                    maxHeight = {
+                        name = "Max Height %",
+                        type = "range", min = 30, max = 95, step = 1,
+                        get = function() return self.db.profile.MaxHeightPercent end,
+                        set = function(_, v) self.db.profile.MaxHeightPercent = v end,
+                        order = 2,
+                    },
+                    fontSize = {
+                        name = "Font Size",
+                        type = "range", min = 8, max = 24, step = 1,
+                        get = function() return self.db.profile.FontSize end,
+                        set = function(_, v) self.db.profile.FontSize = v end,
+                        order = 3,
+                    },
+                    opacity = {
+                        name = "Opacity %",
+                        type = "range", min = 0, max = 100, step = 1,
+                        get = function() return self.db.profile.TooltipOpacity end,
+                        set = function(_, v) self.db.profile.TooltipOpacity = v end,
+                        order = 4,
+                    },
+                    modifier = {
+                        name = "Modifier Key",
+                        type = "select",
+                        values = { ["None"]="None", ["Shift"]="Shift", ["Alt"]="Alt", ["Ctrl"]="Ctrl", ["Cmd"]="Cmd" },
+                        get = function() return self.db.profile.ShowOnModifier end,
+                        set = function(_, v) self.db.profile.ShowOnModifier = v end,
+                        order = 5,
+                    },
+                    clamp = {
+                        name = "Clamp to Screen",
+                        type = "toggle",
+                        get = function() return self.db.profile.ClampToScreen end,
+                        set = function(_, v) self.db.profile.ClampToScreen = v end,
+                        order = 6,
+                    },
+                    combat = {
+                        name = "Hide in Combat",
+                        type = "toggle",
+                        get = function() return self.db.profile.HideInCombat end,
+                        set = function(_, v) self.db.profile.HideInCombat = v end,
+                        order = 7,
+                    },
+                    disable = {
+                        name = "Disable Info",
+                        type = "toggle",
+                        get = function() return self.db.profile.DisableExtraInfo end,
+                        set = function(_, v) self.db.profile.DisableExtraInfo = v end,
+                        order = 8,
+                    },
+                }
+            },
+            colors = {
+                name = "Colors",
+                type = "group",
+                inline = true,
+                order = 2,
+                args = {
+                    nameColor = {
+                        name = "Talent Name Color",
+                        type = "color", hasAlpha = true,
+                        get = function() local c = self.db.profile.TalentNameColor return c.r, c.g, c.b, c.a end,
+                        set = function(_, r, g, b, a) self.db.profile.TalentNameColor = {r=r, g=g, b=b, a=a} end,
+                        order = 1,
+                    },
+                    descColor = {
+                        name = "Talent Description Color",
+                        type = "color", hasAlpha = true,
+                        get = function() local c = self.db.profile.TalentDescColor return c.r, c.g, c.b, c.a end,
+                        set = function(_, r, g, b, a) self.db.profile.TalentDescColor = {r=r, g=g, b=b, a=a} end,
+                        order = 2,
+                    },
+                    bgColor = {
+                        name = "Background Color",
+                        type = "color",
+                        get = function() local c = self.db.profile.BackgroundColor return c.r, c.g, c.b end,
+                        set = function(_, r, g, b) self.db.profile.BackgroundColor = {r=r, g=g, b=b} end,
+                        order = 3,
+                    },
+                    borderColor = {
+                        name = "Border Color",
+                        type = "color", hasAlpha = true,
+                        get = function() local c = self.db.profile.BorderColor return c.r, c.g, c.b, c.a end,
+                        set = function(_, r, g, b, a) self.db.profile.BorderColor = {r=r, g=g, b=b, a=a} end,
+                        order = 4,
+                    },
+                }
+            },
+            reset = {
+                name = "Reset Settings",
+                type = "execute",
+                func = function() self.db:ResetProfile() ReloadUI() end,
+                order = 3,
+            }
+        }
+    }
+end
+
+-- =========================================================================
+-- EVENTOS Y CORE
+-- =========================================================================
+
+function AscensionTooltip:OnInitialize()
+    self.db = LibStub("AceDB-3.0"):New("AscensionTooltipDB", defaults, true)
+    
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(ADDON_NAME, self:GetOptions())
+    self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(ADDON_NAME, "Ascension Tooltip")
+
+    local profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(ADDON_NAME .. " Profiles", profiles)
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(ADDON_NAME .. " Profiles", "Profiles", "Ascension Tooltip")
+
+    self:RegisterChatCommand("at", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+    
+    self:RegisterEvent("TRAIT_CONFIG_UPDATED", "UpdateTalentCache")
+    self:RegisterEvent("PLAYER_LOGIN", "UpdateTalentCache")
+end
+
+function AscensionTooltip:UpdateTalentCache()
     table.wipe(talentCache)
     local configID = C_ClassTalents.GetActiveConfigID()
     if not configID then return end
-
     local configInfo = C_Traits.GetConfigInfo(configID)
     if not configInfo then return end
 
@@ -82,18 +280,12 @@ local function UpdateTalentCache()
             for _, entryID in ipairs(nodeInfo.entryIDs) do
                 local entryInfo = C_Traits.GetEntryInfo(configID, entryID)
                 if entryInfo and entryInfo.definitionID then
-                    local definitionInfo = C_Traits.GetDefinitionInfo(entryInfo.definitionID)
-                    if definitionInfo.spellID and IsPlayerSpell(definitionInfo.spellID) then
-                        local talentSpellID = definitionInfo.spellID
-                        if talentSpellID then
-                            local talent = Spell:CreateFromSpellID(talentSpellID)
-                            talent:ContinueOnSpellLoad(function()
-                                talentCache[talentSpellID] = {
-                                    name = talent:GetSpellName(),
-                                    desc = talent:GetSpellDescription()
-                                }
-                            end)
-                        end
+                    local def = C_Traits.GetDefinitionInfo(entryInfo.definitionID)
+                    if def.spellID and IsPlayerSpell(def.spellID) then
+                        local talent = Spell:CreateFromSpellID(def.spellID)
+                        talent:ContinueOnSpellLoad(function()
+                            talentCache[def.spellID] = { name = talent:GetSpellName(), desc = talent:GetSpellDescription() }
+                        end)
                     end
                 end
             end
@@ -101,191 +293,33 @@ local function UpdateTalentCache()
     end
 end
 
-local function RGBToHex(r, g, b)
-    r = r or 1.0
-    g = g or 1.0
-    b = b or 1.0
-    return string.format("|cff%02x%02x%02x", r*255, g*255, b*255)
-end
-
--- Check if a specific string already exists in the tooltip lines
--- This is the ultimate guard against duplicates
-local function IsLineInTooltip(tooltip, textPart)
-    if not textPart or textPart == "" then return false end
-    local tooltipName = tooltip:GetName()
-    if not tooltipName then return false end -- Safety check for unnamed frames
-
-    for i = 1, tooltip:NumLines() do
-        local line = _G[tooltipName.."TextLeft"..i]
-        local text = line and line:GetText()
-        if text and string.find(text, textPart, 1, true) then
-            return true
-        end
-    end
-    return false
-end
-
 -- =========================================================================
--- TOOLTIP STYLING & LOGIC
+-- TOOLTIP LOGIC
 -- =========================================================================
 
--- Apply Tooltip Styling (Optimized)
-local function ApplyTooltipStyling(tooltip)
-    if not tooltip or not db then return end
+local function SearchTreeCached(spellID, tooltip)
+    local db = AscensionTooltip.db.profile
+    if not db or tooltip.AscensionLastSpell == spellID then return end
 
-    -- 1. Clamp & Colors
-    if db.ClampToScreen then
-        tooltip:SetClampedToScreen(true)
-    end
-
-    local bg = db.BackgroundColor
-    local bd = db.BorderColor
-    local alpha = (db.TooltipOpacity or 90) / 100
-
-    -- Custom Solid Background
-    if not tooltip.SolidBg then
-        tooltip.SolidBg = tooltip:CreateTexture(nil, "BACKGROUND")
-        tooltip.SolidBg:SetPoint("TOPLEFT", tooltip, "TOPLEFT", 4, -4)
-        tooltip.SolidBg:SetPoint("BOTTOMRIGHT", tooltip, "BOTTOMRIGHT", -4, 4)
-    end
-
-    if bg then
-        tooltip.SolidBg:SetColorTexture(bg.r, bg.g, bg.b, alpha)
-        tooltip.SolidBg:Show()
-    else
-        tooltip.SolidBg:Hide()
-    end
-
-    -- Hide native backgrounds
-    if tooltip.NineSlice then
-        tooltip.NineSlice:SetCenterColor(0, 0, 0, 0)
-        if bd then
-            tooltip.NineSlice:SetBorderColor(bd.r, bd.g, bd.b, bd.a or 1.0)
-        end
-    elseif tooltip.SetBackdropColor then
-        tooltip:SetBackdropColor(0, 0, 0, 0)
-        if bd and tooltip.SetBackdropBorderColor then
-            tooltip:SetBackdropBorderColor(bd.r, bd.g, bd.b, bd.a or 1.0)
-        end
-    end
-
-    -- 2. Font & Width
-    local fontName, fontHeight, fontFlags
-    if GameTooltipTextLeft1 then
-        fontName, fontHeight, fontFlags = GameTooltipTextLeft1:GetFont()
-    end
-    
-    local targetWidth = db.TooltipWidth or 350
-    local screenHeight = UIParent:GetHeight()
-    local maxHeight = screenHeight * ((db.MaxHeightPercent or 70) / 100)
-
-    -- Optimization: Apply minimum width once
-    if tooltip:GetMinimumWidth() ~= targetWidth then
-        tooltip:SetMinimumWidth(targetWidth)
-    end
-
-    -- Helper to apply font/width to lines
-    local function ApplyTextStyles(width)
-        for i = 1, tooltip:NumLines() do
-            local left = _G[tooltip:GetName().."TextLeft"..i]
-            local right = _G[tooltip:GetName().."TextRight"..i]
-            
-            if left then
-                -- Only modify if different to reduce layout trashing
-                if left:GetWidth() ~= (width - 20) then
-                    left:SetWidth(width - 20)
-                end
-                left:SetWordWrap(true)
-                if db.FontSize and fontName then
-                    -- Getting font object is expensive, just set it
-                    left:SetFont(fontName, db.FontSize, fontFlags)
-                end
-            end
-            
-            if right and db.FontSize and fontName then
-                right:SetFont(fontName, db.FontSize, fontFlags)
-            end
-        end
-    end
-
-    -- Apply base style
-    ApplyTextStyles(targetWidth)
-
-    -- 3. Smart Height Check (Debounced/Optimized)
-    -- We only force a Show/Recalculate if we suspect an overflow
-    -- Using GetHeight() immediately after adding lines usually returns the new height
-    local currentHeight = tooltip:GetHeight()
-    
-    if currentHeight > maxHeight and currentHeight > 0 then
-        local ratio = currentHeight / maxHeight
-        
-        -- Only widen if significantly over (5% tolerance) to prevent jitter
-        if ratio > 1.05 then
-            local newWidth = targetWidth * ratio * 1.05
-            
-            -- Clamp max width
-            local maxScreenWidth = UIParent:GetWidth() * 0.6
-            if newWidth > maxScreenWidth then newWidth = maxScreenWidth end
-
-            if newWidth > targetWidth then
-                tooltip:SetMinimumWidth(newWidth)
-                ApplyTextStyles(newWidth)
-                -- Only call Show() if we actually changed dimensions
-                tooltip:Show()
-            end
-        end
-    else
-        tooltip:Show()
-    end
-end
-
--- Hook to clean up
-local function HookTooltipClear(tooltip)
     if not tooltip.AscensionHooked then
         tooltip:HookScript("OnTooltipCleared", function(self)
             self.AscensionLastSpell = nil
-            if self.SolidBg then 
-                self.SolidBg:Hide()
-            end
+            if self.SolidBg then self.SolidBg:Hide() end
         end)
         tooltip.AscensionHooked = true
     end
-end
 
-local function SearchTreeCached(spellID, tooltip)
-    if not db then return end
-    
-    -- 1. Fast ID Check: Prevents processing the same ID twice on same frame
-    if tooltip.AscensionLastSpell == spellID then
-        return
-    end
-
-    HookTooltipClear(tooltip)
-
-    if db.HideInCombat and InCombatLockdown() then
+    if (db.HideInCombat and InCombatLockdown()) or db.DisableExtraInfo then
         tooltip.AscensionLastSpell = spellID
-        ApplyTooltipStyling(tooltip)
+        AscensionTooltip:ApplyTooltipStyling(tooltip)
         return
     end
 
-    -- 1.1 Disable Extra Info Option
-    if db.DisableExtraInfo then
-        tooltip.AscensionLastSpell = spellID
-        ApplyTooltipStyling(tooltip)
-        return
-    end
-
-    -- 1.2 Modifier Key Check
-    if db.ShowOnModifier and db.ShowOnModifier ~= "None" then
-        local pressed = false
-        if db.ShowOnModifier == "Shift" and IsShiftKeyDown() then pressed = true end
-        if db.ShowOnModifier == "Alt" and IsAltKeyDown() then pressed = true end
-        if db.ShowOnModifier == "Ctrl" and IsControlKeyDown() then pressed = true end
-        if db.ShowOnModifier == "Cmd" and IsMetaKeyDown() then pressed = true end
-        
-        if not pressed then
+    if db.ShowOnModifier ~= "None" then
+        local modifierMap = { Shift = IsShiftKeyDown, Alt = IsAltKeyDown, Ctrl = IsControlKeyDown, Cmd = IsMetaKeyDown }
+        if not (modifierMap[db.ShowOnModifier] and modifierMap[db.ShowOnModifier]()) then
             tooltip.AscensionLastSpell = spellID
-            ApplyTooltipStyling(tooltip)
+            AscensionTooltip:ApplyTooltipStyling(tooltip)
             return
         end
     end
@@ -293,352 +327,39 @@ local function SearchTreeCached(spellID, tooltip)
     local spellInfo = C_Spell.GetSpellInfo(spellID)
     if not spellInfo then return end
     
-    local spellName = spellInfo.name
-    local extraSpellName = nil
-    if replacedSpells[spellID] then
-        local extraSpellInfo = C_Spell.GetSpellInfo(replacedSpells[spellID])
-        if extraSpellInfo then
-            extraSpellName = extraSpellInfo.name
-        end
-    end
+    local extraName = replacedSpells[spellID] and C_Spell.GetSpellInfo(replacedSpells[spellID]).name
+    local nameHex, descHex = RGBToHex(db.TalentNameColor.r, db.TalentNameColor.g, db.TalentNameColor.b), RGBToHex(db.TalentDescColor.r, db.TalentDescColor.g, db.TalentDescColor.b)
+    local processedRun = {}
 
-    local nameHex = RGBToHex(db.TalentNameColor.r, db.TalentNameColor.g, db.TalentNameColor.b)
-    local descHex = RGBToHex(db.TalentDescColor.r, db.TalentDescColor.g, db.TalentDescColor.b)
-    
-    -- Local tracking for THIS execution to handle duplicate cache entries (same name, diff ID)
-    local namesProcessedThisRun = {} 
+    for talentID, talent in pairs(talentCache) do
+        local isBlacklisted = blacklistedTalents[spellID] and blacklistedTalents[spellID][talentID]
+        local isMissing = talentsMissingName[spellID] and talentsMissingName[spellID][talentID]
+        local nameMatch = talent.name ~= spellInfo.name
+        local descMatch = talent.desc and (string.find(talent.desc, spellInfo.name, 1, true) or (extraName and string.find(talent.desc, extraName, 1, true)))
 
-    for talentSpellID, talentInfo in pairs(talentCache) do
-        local isNotBlacklisted = not (blacklistedTalents[spellID] and blacklistedTalents[spellID][talentSpellID])
-        local isMissingName = talentsMissingName[spellID] and talentsMissingName[spellID][talentSpellID]
-        
-        local nameMatch = (talentInfo.name ~= spellName)
-        local descMatch = false
-        
-        if talentInfo.desc then
-            local foundInDesc = string.find(talentInfo.desc, spellName, 1, true)
-            local foundExtra = extraSpellName and string.find(talentInfo.desc, extraSpellName, 1, true)
-            descMatch = foundInDesc or foundExtra
-        end
-
-        if (isMissingName or (isNotBlacklisted and nameMatch and descMatch)) then
-            
-            -- 2. DUPLICATE PROTECTION:
-            -- Check 1: Have we already added this talent name in THIS loop? (Handles multiple IDs for same talent)
-            -- Check 2: Is it already in the tooltip text from a previous update?
-            if not namesProcessedThisRun[talentInfo.name] and not IsLineInTooltip(tooltip, talentInfo.name) then
-                
-                tooltip:AddLine(" ") -- Spacer
-
-                -- Sanitize description colors
-                local safeDesc = string.gsub(talentInfo.desc, "|r", "|r" .. descHex)
-                local tooltipText = nameHex .. talentInfo.name .. ":|r " .. descHex .. safeDesc .. "|r"
-                
-                tooltip:AddLine(tooltipText, 1, 1, 1, true)
-                
-                -- Mark as processed so we don't add it again if another ID matches
-                namesProcessedThisRun[talentInfo.name] = true
+        if (isMissing or (not isBlacklisted and nameMatch and descMatch)) then
+            if not processedRun[talent.name] and not IsLineInTooltip(tooltip, talent.name) then
+                tooltip:AddLine(" ")
+                local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
+                tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1, true)
+                processedRun[talent.name] = true
             end
         end
     end
     
-    -- Mark processed
     tooltip.AscensionLastSpell = spellID
-    ApplyTooltipStyling(tooltip)
+    AscensionTooltip:ApplyTooltipStyling(tooltip)
 end
-
--- =========================================================================
--- OPTIONS MENU
--- =========================================================================
-
-local OptionsPanel = CreateFrame("Frame", "AscensionTooltipOptions", UIParent)
-OptionsPanel.name = "Ascension Tooltip"
-
-local optionsRegistry = {}
-
-local function UpdateAllOptions()
-    if not db then return end
-    for _, widget in ipairs(optionsRegistry) do
-        if widget.UpdateState then widget:UpdateState() end
-    end
-end
-
-local function CreateCheckbox(name, parent, labelText, dbKey)
-    local check = CreateFrame("CheckButton", name, parent, "ChatConfigCheckButtonTemplate")
-    _G[name .. "Text"]:SetText(labelText)
-    check:SetScript("OnClick", function(self)
-        db[dbKey] = self:GetChecked()
-    end)
-    
-    check.UpdateState = function(self)
-        if db then self:SetChecked(db[dbKey]) end
-    end
-    table.insert(optionsRegistry, check)
-    
-    check:HookScript("OnShow", check.UpdateState)
-    return check
-end
-
-local function CreateSlider(name, parent, min, max, step, labelText, dbKey)
-    local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
-    slider:SetMinMaxValues(min, max)
-    slider:SetValueStep(step)
-    slider:SetObeyStepOnDrag(true)
-    slider:SetWidth(180) 
-    
-    _G[name .. "Low"]:SetText(min)
-    _G[name .. "High"]:SetText(max)
-    _G[name .. "Text"]:SetText(labelText)
-    
-    local valueText = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    valueText:SetPoint("TOP", slider, "BOTTOM", 0, -5)
-    
-    slider:SetScript("OnValueChanged", function(self, value)
-        local val = math.floor(value / step + 0.5) * step 
-        valueText:SetText(string.format("%.0f", val))
-        db[dbKey] = val
-    end)
-
-    slider.UpdateState = function(self)
-        if db then
-            self:SetValue(db[dbKey])
-            valueText:SetText(string.format("%.0f", db[dbKey]))
-        end
-    end
-    table.insert(optionsRegistry, slider)
-
-    slider:HookScript("OnShow", slider.UpdateState)
-
-    local btnMinus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    btnMinus:SetSize(20, 20)
-    btnMinus:SetText("-")
-    btnMinus:SetPoint("RIGHT", slider, "LEFT", -5, 0)
-    btnMinus:SetScript("OnClick", function()
-        local current = slider:GetValue()
-        local newVal = current - step
-        if newVal < min then newVal = min end
-        slider:SetValue(newVal)
-    end)
-
-    local btnPlus = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    btnPlus:SetSize(20, 20)
-    btnPlus:SetText("+")
-    btnPlus:SetPoint("LEFT", slider, "RIGHT", 5, 0)
-    btnPlus:SetScript("OnClick", function()
-        local current = slider:GetValue()
-        local newVal = current + step
-        if newVal > max then newVal = max end
-        slider:SetValue(newVal)
-    end)
-
-    return slider
-end
-
-local function CreateColorPicker(name, parent, labelText, dbKey, useOpacity)
-    local frame = CreateFrame("Button", name, parent)
-    frame:SetSize(20, 20)
-    local swatch = frame:CreateTexture(nil, "OVERLAY")
-    swatch:SetAllPoints()
-    swatch:SetColorTexture(1, 1, 1)
-    frame.swatch = swatch
-    
-    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    label:SetPoint("LEFT", frame, "RIGHT", 10, 0)
-    label:SetText(labelText)
-    
-    frame:SetScript("OnClick", function()
-        local colorData = db[dbKey]
-        local r, g, b, a = colorData.r, colorData.g, colorData.b, colorData.a
-        
-        local info = {
-            r = r, g = g, b = b, opacity = a,
-            hasOpacity = useOpacity,
-            swatchFunc = function()
-                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-                local na = 1.0
-                if useOpacity then
-                    na = ColorPickerFrame:GetColorAlpha() or 1.0
-                else
-                    na = a
-                end
-                
-                db[dbKey].r, db[dbKey].g, db[dbKey].b, db[dbKey].a = nr, ng, nb, na
-                swatch:SetColorTexture(nr, ng, nb, na)
-            end,
-            opacityFunc = function()
-                 if not useOpacity then return end
-                 local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-                 local na = ColorPickerFrame:GetColorAlpha() or 1.0
-                 db[dbKey].r, db[dbKey].g, db[dbKey].b, db[dbKey].a = nr, ng, nb, na
-                 swatch:SetColorTexture(nr, ng, nb, na)
-            end,
-            cancelFunc = function()
-                db[dbKey].r, db[dbKey].g, db[dbKey].b, db[dbKey].a = r, g, b, a
-                swatch:SetColorTexture(r, g, b, a)
-            end,
-        }
-        ColorPickerFrame:SetupColorPickerAndShow(info)
-    end)
-
-    frame.UpdateState = function(self)
-        if db then
-            local t = db[dbKey]
-            swatch:SetColorTexture(t.r, t.g, t.b, t.a or 1.0)
-        end
-    end
-    table.insert(optionsRegistry, frame)
-
-    frame:HookScript("OnShow", frame.UpdateState)
-    return frame
-end
-
-local function CreateCycleButton(name, parent, labelText, dbKey, options)
-    local frame = CreateFrame("Button", name, parent, "UIPanelButtonTemplate")
-    frame:SetSize(100, 22)
-    
-    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    label:SetPoint("LEFT", frame, "RIGHT", 10, 0)
-    label:SetText(labelText)
-
-    frame:SetScript("OnClick", function(self)
-        local currentIndex = 1
-        for i, opt in ipairs(options) do
-            if db[dbKey] == opt then currentIndex = i break end
-        end
-        currentIndex = currentIndex + 1
-        if currentIndex > #options then currentIndex = 1 end
-        db[dbKey] = options[currentIndex]
-        self:SetText(options[currentIndex])
-    end)
-
-    frame.UpdateState = function(self)
-        if db then self:SetText(db[dbKey] or options[1]) end
-    end
-    table.insert(optionsRegistry, frame)
-
-    frame:HookScript("OnShow", frame.UpdateState)
-
-    return frame
-end
-
-local function InitOptionsPanel()
-    local title = OptionsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("Ascension Tooltip")
-
-    local subText = OptionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    subText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-    subText:SetText("Customize tooltip size and appearance.")
-
-    local sliderWidth = CreateSlider("AT_SliderWidth", OptionsPanel, 200, 600, 10, "Tooltip Width", "TooltipWidth")
-    sliderWidth:SetPoint("TOPLEFT", subText, "BOTTOMLEFT", 25, -30)
-
-    local sliderHeight = CreateSlider("AT_SliderHeight", OptionsPanel, 30, 95, 5, "Max Screen Height %", "MaxHeightPercent")
-    sliderHeight:SetPoint("TOPLEFT", sliderWidth, "BOTTOMLEFT", 0, -40)
-
-    local sliderFont = CreateSlider("AT_SliderFont", OptionsPanel, 8, 24, 1, "Font Size", "FontSize")
-    sliderFont:SetPoint("TOPLEFT", sliderHeight, "BOTTOMLEFT", 0, -40)
-
-    local sliderOpacity = CreateSlider("AT_SliderOpacity", OptionsPanel, 0, 100, 5, "Background Opacity %", "TooltipOpacity")
-    sliderOpacity:SetPoint("TOPLEFT", sliderFont, "BOTTOMLEFT", 0, -40)
-
-    local chkClamp = CreateCheckbox("AT_ChkClamp", OptionsPanel, "Clamp to Screen", "ClampToScreen")
-    chkClamp:SetPoint("TOPLEFT", sliderOpacity, "BOTTOMLEFT", -25, -20)
-
-    local chkCombat = CreateCheckbox("AT_ChkCombat", OptionsPanel, "Hide Extra Info in Combat", "HideInCombat")
-    chkCombat:SetPoint("TOPLEFT", chkClamp, "BOTTOMLEFT", 0, -10)
-
-    local chkDisableInfo = CreateCheckbox("AT_ChkDisableInfo", OptionsPanel, "Disable Extra Info (Visuals Only)", "DisableExtraInfo")
-    chkDisableInfo:SetPoint("TOPLEFT", chkCombat, "BOTTOMLEFT", 0, -10)
-    
-    local btnModifier = CreateCycleButton("AT_BtnModifier", OptionsPanel, "Show Info Modifier Key", "ShowOnModifier", {"None", "Shift", "Alt", "Ctrl", "Cmd"})
-    btnModifier:SetPoint("TOPLEFT", chkDisableInfo, "BOTTOMLEFT", 0, -15)
-
-    local cpNameColor = CreateColorPicker("AT_ColorName", OptionsPanel, "Talent Name Color", "TalentNameColor", true)
-    cpNameColor:SetPoint("TOPLEFT", btnModifier, "BOTTOMLEFT", 0, -30)
-
-    local cpDescColor = CreateColorPicker("AT_ColorDesc", OptionsPanel, "Talent Description Color", "TalentDescColor", true)
-    cpDescColor:SetPoint("TOPLEFT", cpNameColor, "BOTTOMLEFT", 0, -15)
-    
-    local cpBgColor = CreateColorPicker("AT_ColorBg", OptionsPanel, "Tooltip Background Color", "BackgroundColor", false)
-    cpBgColor:SetPoint("TOPLEFT", cpDescColor, "BOTTOMLEFT", 0, -30)
-
-    local cpBdColor = CreateColorPicker("AT_ColorBd", OptionsPanel, "Tooltip Border Color", "BorderColor", true)
-    cpBdColor:SetPoint("TOPLEFT", cpBgColor, "BOTTOMLEFT", 0, -15)
-
-    local btnReset = CreateFrame("Button", "AT_BtnReset", OptionsPanel, "UIPanelButtonTemplate")
-    btnReset:SetSize(120, 22)
-    btnReset:SetText("Reset Defaults")
-    btnReset:SetPoint("TOPLEFT", cpBdColor, "BOTTOMLEFT", 0, -40)
-    btnReset:SetScript("OnClick", function()
-        AscensionTooltipDB = CopyTable(DEFAULTS)
-        db = AscensionTooltipDB
-        UpdateAllOptions()
-        ReloadUI()
-    end)
-    
-    OptionsPanel:HookScript("OnShow", UpdateAllOptions)
-end
-
-if Settings and Settings.RegisterCanvasLayoutCategory then
-    local category = Settings.RegisterCanvasLayoutCategory(OptionsPanel, "Ascension Tooltip")
-    Settings.RegisterAddOnCategory(category)
-else
-    InterfaceOptions_AddOnCategory(OptionsPanel)
-end
-
-InitOptionsPanel()
-
-local f = CreateFrame("Frame")
-f:RegisterEvent("ADDON_LOADED")
-f:RegisterEvent("PLAYER_LOGIN")
-f:RegisterEvent("TRAIT_CONFIG_UPDATED")
-
-f:SetScript("OnEvent", function(self, event, ...)
-    local arg1 = ...
-    if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
-        if not AscensionTooltipDB then 
-            AscensionTooltipDB = CopyTable(DEFAULTS) 
-        end
-        db = AscensionTooltipDB
-        
-        -- Merge Defaults
-        for k, v in pairs(DEFAULTS) do
-            if db[k] == nil then 
-                if type(v) == "table" then 
-                    db[k] = CopyTable(v) 
-                else 
-                    db[k] = v 
-                end
-            end
-        end
-        
-        -- Sync Options UI
-        UpdateAllOptions()
-        
-    elseif event == "PLAYER_LOGIN" then
-        -- Ensure cache is updated after login
-        C_Timer.After(1, UpdateTalentCache)
-        
-    elseif event == "TRAIT_CONFIG_UPDATED" then
-        C_Timer.After(1, UpdateTalentCache)
-    end
-end)
 
 if TooltipDataProcessor then
     TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip, data)
         if not data or not data.type then return end
-        
         if data.type == Enum.TooltipDataType.Spell and IsSpellKnownOrOverridesKnown(data.id) then
             SearchTreeCached(data.id, tooltip)
         elseif data.type == Enum.TooltipDataType.Macro and data.lines[1].tooltipID and IsSpellKnownOrOverridesKnown(data.lines[1].tooltipID) then
             SearchTreeCached(data.lines[1].tooltipID, tooltip)
-        else
-            if tooltip.AscensionLastSpell then
-               ApplyTooltipStyling(tooltip) 
-            end
+        elseif tooltip.AscensionLastSpell then
+            AscensionTooltip:ApplyTooltipStyling(tooltip)
         end
     end)
 end
-
-print("AscensionTooltip: Loaded (Debug)")
