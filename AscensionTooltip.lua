@@ -1,13 +1,12 @@
 --[[ 
-    AscensionTooltip v3.0.0
-    Migración completa a Ace3 Framework
+    AscensionTooltip
 ]]
 
 local ADDON_NAME = "AscensionTooltip"
 AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0")
 
 -- =========================================================================
--- CONFIGURACIÓN POR DEFECTO (AceDB)
+-- DEFAULT SETTINGS (AceDB)
 -- =========================================================================
 local defaults = {
     profile = {
@@ -29,7 +28,7 @@ local defaults = {
 }
 
 -- =========================================================================
--- DATOS ESTÁTICOS
+-- STATIC DATA
 -- =========================================================================
 local talentsMissingName = { [370960] = { [377082] = true } }
 local replacedSpells = { [431443] = 361469, [467307] = 107428, [157153] = 5394, [443454] = 378081, [200758] = 53, [388667] = 686 }
@@ -46,11 +45,12 @@ local blacklistedTalents = {
 local talentCache = {}
 
 -- =========================================================================
--- FUNCIONES AUXILIARES
+-- AUXILIARY FUNCTIONS
 -- =========================================================================
 
 local function RGBToHex(r, g, b)
-    return string.format("|cff%02x%02x%02x", (r or 1)*255, (g or 1)*255, (b or 1)*255)
+    -- Correction: Rounding values to avoid errors in string.format with floats.
+    return string.format("|cff%02x%02x%02x", math.floor((r or 1)*255), math.floor((g or 1)*255), math.floor((b or 1)*255))
 end
 
 local function IsLineInTooltip(tooltip, textPart)
@@ -66,7 +66,7 @@ local function IsLineInTooltip(tooltip, textPart)
 end
 
 -- =========================================================================
--- LÓGICA DE VISUALIZACIÓN
+-- VISUALIZATION LOGIC
 -- =========================================================================
 
 function AscensionTooltip:ApplyTooltipStyling(tooltip)
@@ -88,6 +88,7 @@ function AscensionTooltip:ApplyTooltipStyling(tooltip)
         tooltip.NineSlice:SetCenterColor(0, 0, 0, 0)
         tooltip.NineSlice:SetBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
     elseif tooltip.SetBackdropColor then
+        -- Correction: Security check for Backdrop methods.
         tooltip:SetBackdropColor(0, 0, 0, 0)
         tooltip:SetBackdropBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
     end
@@ -126,7 +127,7 @@ function AscensionTooltip:ApplyTooltipStyling(tooltip)
 end
 
 -- =========================================================================
--- MENÚ DE OPCIONES (AceConfig)
+-- OPTIONS MENU (AceConfig)
 -- =========================================================================
 
 function AscensionTooltip:GetOptions()
@@ -247,7 +248,7 @@ function AscensionTooltip:GetOptions()
 end
 
 -- =========================================================================
--- EVENTOS Y CORE
+-- EVENTS AND CORE
 -- =========================================================================
 
 function AscensionTooltip:OnInitialize()
@@ -260,7 +261,14 @@ function AscensionTooltip:OnInitialize()
     LibStub("AceConfig-3.0"):RegisterOptionsTable(ADDON_NAME .. " Profiles", profiles)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions(ADDON_NAME .. " Profiles", "Profiles", "Ascension Tooltip")
 
-    self:RegisterChatCommand("at", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+    -- Correction: Use of Settings.OpenToCategory for compatibility with the new UI
+    self:RegisterChatCommand("at", function() 
+        if Settings and Settings.OpenToCategory then
+            Settings.OpenToCategory(self.optionsFrame.name)
+        else
+            InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+        end
+    end)
     
     self:RegisterEvent("TRAIT_CONFIG_UPDATED", "UpdateTalentCache")
     self:RegisterEvent("PLAYER_LOGIN", "UpdateTalentCache")
@@ -327,7 +335,11 @@ local function SearchTreeCached(spellID, tooltip)
     local spellInfo = C_Spell.GetSpellInfo(spellID)
     if not spellInfo then return end
     
-    local extraName = replacedSpells[spellID] and C_Spell.GetSpellInfo(replacedSpells[spellID]).name
+    -- Correction: Safe handling of the table returned by C_Spell.GetSpellInfo
+    local replacedID = replacedSpells[spellID]
+    local replacedInfo = replacedID and C_Spell.GetSpellInfo(replacedID)
+    local extraName = replacedInfo and replacedInfo.name
+
     local nameHex, descHex = RGBToHex(db.TalentNameColor.r, db.TalentNameColor.g, db.TalentNameColor.b), RGBToHex(db.TalentDescColor.r, db.TalentDescColor.g, db.TalentDescColor.b)
     local processedRun = {}
 
