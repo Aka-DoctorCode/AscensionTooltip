@@ -1,19 +1,4 @@
---[[ 
-    AscensionTooltip
-    Version: 3.4.1
-    Description:
-    An enhanced tooltip addon for Project Ascension, providing detailed talent 
-    information and interactive spell-talent relationship insights.
-    
-    Features: 
-    - Full Visual Customization: Adjust colors, opacity, and borders for a premium look.
-    - Smart Scaling: Pixel-based MaxHeight with automatic width adjustment to prevent overlap.
-    - User Whitelist: Manually add spells/talents to your local database and contribute to the community.
-    - User Blacklist: Exclude specific entries to keep your tooltips clean and relevant.
-    - Data Resolving: Real-time resolution of Spell Names, IDs, and Icons in the settings menu.
-    - Multi-Platform Reporting: Easily share your whitelist with the developer via GitHub, CurseForge, or Raw Data.
-    - Profile Management: Save and reset configurations per character profile.
-]]
+--AscensionTooltip
 
 local ADDON_NAME = "AscensionTooltip"
 AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0")
@@ -190,7 +175,7 @@ end
 -- =========================================================================
 
 function AscensionTooltip:GetOptions()
-    return {
+    local options = {
         name = "Ascension Tooltip",
         handler = AscensionTooltip,
         type = "group",
@@ -419,16 +404,21 @@ function AscensionTooltip:GetOptions()
                     },
                 }
             },
+            profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db),
             reset = {
-                name = "Reset Profile",
+                name = "Reset Profile Settings",
                 type = "execute",
                 confirm = true,
-                desc = "Reset all settings for this profile to default.",
+                desc = "Reset all visual and data settings for this profile to default.",
                 func = function() self.db:ResetProfile() ReloadUI() end,
-                order = 5,
+                order = 7,
             },
         }
     }
+    -- Ensure profiles group is consistent with the UI
+    options.args.profiles.order = 6
+    options.args.profiles.inline = true
+    return options
 end
 
 -- =========================================================================
@@ -437,10 +427,18 @@ end
 
 function AscensionTooltip:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("AscensionTooltipDB", defaults, true)
+    
+    -- Register Options Table
     LibStub("AceConfig-3.0"):RegisterOptionsTable(ADDON_NAME, self:GetOptions())
+    
+    -- Add to Blizzard Interface Options (Traditional Menu)
     self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(ADDON_NAME, "Ascension Tooltip")
 
-    self:RegisterChatCommand("at", function() Settings.OpenToCategory(self.optionsFrame.name) end)
+    -- Updated Slash Command: Now opens the standalone floating window
+    self:RegisterChatCommand("at", function() 
+        LibStub("AceConfigDialog-3.0"):Open(ADDON_NAME)
+    end)
+    
     self:RegisterEvent("TRAIT_CONFIG_UPDATED", "UpdateTalentCache")
     self:RegisterEvent("PLAYER_LOGIN", "UpdateTalentCache")
 end
