@@ -1,8 +1,8 @@
 ## Interface: 120000
 ## Title: AscensionTooltip
-## Notes: Plugin for Talent Tooltip Enhancer.
+## Notes: Enhanced tooltip display for Ascension talent information.
 ## Author: AkaDoctorCode
-## Version: 3.3.0
+## Version: 4.0.0
 ## SavedVariables: AscensionTooltipDB
 
 # Librerías Ace3 y dependencias
@@ -14,6 +14,7 @@ Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\AceConsole-3.0\AceConsole-3.0.xml
 Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceTimer-3.0\AceTimer-3.0.xml
 
 # Archivo principal del addon
 AscensionTooltip.lua

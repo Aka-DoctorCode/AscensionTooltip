@@ -1,11 +1,11 @@
 package-as: AscensionTooltip
 ignore:
-    - .git
-    - .gitignore
-    - .vscode
-    - .pkgmeta
-    - __MACOSX
-    - .DS_Store
+  - .git
+  - .gitignore
+  - .vscode
+  - .pkgmeta
+  - __MACOSX
+  - .DS_Store
 
 externals:
   Libs/LibStub:
@@ -26,3 +26,5 @@ externals:
     url: https://repos.wowace.com/wow/ace3/mainline/trunk/AceGUI-3.0
   Libs/AceConfig-3.0:
     url: https://repos.wowace.com/wow/ace3/mainline/trunk/AceConfig-3.0
+  Libs/AceTimer-3.0:
+    url: https://repos.wowace.com/wow/ace3/mainline/trunk/AceTimer-3.0
