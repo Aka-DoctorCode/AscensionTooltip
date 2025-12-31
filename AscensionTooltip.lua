@@ -1,5 +1,8 @@
---AscensionTooltip
-
+-- Happy new year everyone!
+-- Please leave feedback to improve the add on
+-- ==========================================================
+-- AscensionTooltip - Version 4.0.0
+-- ==========================================================
 local ADDON_NAME = "AscensionTooltip"
 AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 
@@ -13,8 +16,8 @@ StaticPopupDialogs["ASCENSION_TOOLTIP_REPORT"] = {
     editBoxWidth = 350,
     OnShow = function(self, data)
         if self.EditBox then
-            self.EditBox:SetText(data or "")
             self.EditBox:SetFocus()
+            self.EditBox:SetText(data or "")
             self.EditBox:HighlightText()
         end
     end,
