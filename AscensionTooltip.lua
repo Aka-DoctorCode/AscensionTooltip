@@ -1,5 +1,3 @@
--- Happy new year everyone!
--- Please leave feedback to improve the add on
 -- ==========================================================
 -- AscensionTooltip - Version 4.0.0
 -- ==========================================================
