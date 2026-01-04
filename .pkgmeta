@@ -1,5 +1,4 @@
 package-as: AscensionTooltip
-enable-nolib-creation: no
 
 ignore:
   - .git
