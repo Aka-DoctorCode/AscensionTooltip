@@ -1,5 +1,5 @@
 -- ==========================================================
--- AscensionTooltip - Version 4.0.0
+-- AscensionTooltip - Version 4.0.4
 -- ==========================================================
 local ADDON_NAME = "AscensionTooltip"
 AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
@@ -55,15 +55,43 @@ local defaults = {
 -- =========================================================================
 -- MASTER DATA
 -- =========================================================================
-local talentsMissingName = { [370960] = { [377082] = true } }
+-- Updated: Added Lifeforce Mender logic
+local talentsMissingName = {
+    ----Preservation Evoker
+    --Living Flame
+    [361469] = {
+        --Lifeforce Mender
+        [376179] = true
+    },
+    --Chronoflame
+    [431443] = {
+        --Lifeforce Mender
+        [376179] = true
+    },
+    --Fire Breath
+    [357208] = {
+        --Lifeforce Mender
+        [376179] = true
+    }
+}
 
+-- Updated: Removed Cloudburst Totem
 local replacedSpells = {
+    ----Preservation Evoker
+    --Chronoflame replaces Living Flame
     [431443] = 361469,
+    ----Mistweaver Monk
+    --Rushing Wind Kick replaces Rising Sun Kick
     [467307] = 107428,
-    [157153] = 5394,
+    -----Farseer Shaman
+    --Ancestral Swiftness replaces Natures Swiftness
     [443454] = 378081,
+    ----Subtlety Rogue
+    --Gloomblade replaces Backstab
     [200758] = 53,
-    [388667] = 686
+    ---Affliction Warlock
+    --Drain Soul replaces Shadow Bolt
+    [388667] = 686,
 }
 
 local masterWhitelist = {
@@ -749,7 +777,8 @@ local function SearchTreeCached(spellID, tooltip)
                         if icon then
                             tooltip:AddLine(string.format("|T%d:18:18:0:0|t %s", icon, nameHex .. talent.name .. ":|r"))
                             local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                            tooltip:AddLine("   " .. descHex .. safeDesc .. "|r", 1, 1, 1, true)
+                            -- CHANGE: Removed "   " padding before description
+                            tooltip:AddLine(descHex .. safeDesc .. "|r", 1, 1, 1, true)
                         else
                             local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
                             tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1,
@@ -772,11 +801,29 @@ end
 
 if TooltipDataProcessor then
     TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip, data)
+        -- Rule: Nil check for data and data.type
         if not data or not data.type then return end
-        if data.type == Enum.TooltipDataType.Spell and C_SpellBook.IsSpellInSpellBook(data.id) then
-            SearchTreeCached(data.id, tooltip)
-        elseif data.type == Enum.TooltipDataType.Macro and data.lines[1].tooltipID then
-            SearchTreeCached(data.lines[1].tooltipID, tooltip)
+
+        -- Rule: Undefined global check for 'issecretvalue'
+        if issecretvalue and issecretvalue(data.type) then return end
+
+        if data.type == Enum.TooltipDataType.Spell and data.id then
+            -- Rule: Verify spell exists in book to avoid processing bad IDs
+            if C_SpellBook.IsSpellInSpellBook(data.id) then
+                SearchTreeCached(data.id, tooltip)
+            end
+        elseif data.type == Enum.TooltipDataType.Macro then
+            -- Rule: Deep nil check for lines structure
+            -- 1. Check if lines table exists
+            -- 2. Check if the first line exists
+            -- 3. Check if tooltipID exists inside the first line
+            if data.lines and data.lines[1] and data.lines[1].tooltipID then
+                local spellID = data.lines[1].tooltipID
+                -- Double check existence
+                if C_SpellBook.IsSpellInSpellBook(spellID) then
+                    SearchTreeCached(spellID, tooltip)
+                end
+            end
         end
     end)
 end

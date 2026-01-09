@@ -1,8 +1,8 @@
-## Interface: 120000
+## Interface: 120001
 ## Title: AscensionTooltip
 ## Notes: Enhanced tooltip display for Ascension talent information.
 ## Author: AkaDoctorCode
-## Version: 4.0.3
+## Version: 4.1.0
 ## SavedVariables: AscensionTooltipDB
 
 # Librerías Ace3 y dependencias
