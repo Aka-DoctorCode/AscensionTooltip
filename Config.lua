@@ -1,8 +1,5 @@
--- ==========================================================
--- AscensionTooltip - Version 4.0.4
--- ==========================================================
 local ADDON_NAME = "AscensionTooltip"
-AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
+local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 
 -- =========================================================================
 -- STATIC POPUP CONFIGURATION
@@ -28,7 +25,7 @@ StaticPopupDialogs["ASCENSION_TOOLTIP_REPORT"] = {
 -- =========================================================================
 -- DEFAULT SETTINGS (AceDB)
 -- =========================================================================
-local defaults = {
+AscensionTooltip.defaults = {
     profile = {
         TooltipWidth = 350,
         FontSize = 12,
@@ -51,233 +48,6 @@ local defaults = {
         CombatDelay = 0.5,
     }
 }
-
--- =========================================================================
--- MASTER DATA
--- =========================================================================
--- Updated: Added Lifeforce Mender logic
-local talentsMissingName = {
-    ----Preservation Evoker
-    --Living Flame
-    [361469] = {
-        --Lifeforce Mender
-        [376179] = true
-    },
-    --Chronoflame
-    [431443] = {
-        --Lifeforce Mender
-        [376179] = true
-    },
-    --Fire Breath
-    [357208] = {
-        --Lifeforce Mender
-        [376179] = true
-    }
-}
-
--- Updated: Removed Cloudburst Totem
-local replacedSpells = {
-    ----Preservation Evoker
-    --Chronoflame replaces Living Flame
-    [431443] = 361469,
-    ----Mistweaver Monk
-    --Rushing Wind Kick replaces Rising Sun Kick
-    [467307] = 107428,
-    -----Farseer Shaman
-    --Ancestral Swiftness replaces Natures Swiftness
-    [443454] = 378081,
-    ----Subtlety Rogue
-    --Gloomblade replaces Backstab
-    [200758] = 53,
-    ---Affliction Warlock
-    --Drain Soul replaces Shadow Bolt
-    [388667] = 686,
-}
-
-local masterWhitelist = {
-    [124682] = { [116680] = true, [388491] = true },
-    [115151] = { [116680] = true, [388491] = true },
-    [116670] = { [116680] = true, [388491] = true },
-    [107428] = { [116680] = true, [388491] = true },
-    [191837] = { [116680] = true, [388491] = true },
-    [322101] = { [116680] = true, [388491] = true },
-    [774] = { [33891] = true },
-    [48438] = { [33891] = true },
-    [8936] = { [33891] = true },
-    [5176] = { [33891] = true },
-    [339] = { [33891] = true },
-    [102693] = { [393371] = true },
-    [188389] = { [262303] = true, [378270] = true, [114050] = true },
-    [188443] = { [262303] = true },
-    [188196] = { [262303] = true },
-    [196840] = { [262303] = true },
-    [51505] = { [262303] = true },
-}
-
-local talentCache = {}
-
--- =========================================================================
--- PERFORMANCE & MEMORY MANAGEMENT
--- =========================================================================
-local recentSpells = {}
-local MAX_RECENT = 10
-
--- =========================================================================
--- UTILITY FUNCTIONS
--- =========================================================================
-
-local function RGBToHex(r, g, b)
-    return string.format("|cff%02x%02x%02x", math.floor((r or 1) * 255), math.floor((g or 1) * 255),
-        math.floor((b or 1) * 255))
-end
-
-local function URLEncode(str)
-    if str then
-        str = string.gsub(str, "\n", "\r\n")
-        str = string.gsub(str, "([^%w %-%_%.%~])", function(c)
-            return string.format("%%%02X", string.byte(c))
-        end)
-        str = string.gsub(str, " ", "+")
-    end
-    return str
-end
-
-local function IsLineInTooltip(tooltip, textPart)
-    if not textPart or textPart == "" then return false end
-    local tooltipName = tooltip:GetName()
-    if not tooltipName then return false end
-    for i = 1, tooltip:NumLines() do
-        local line = _G[tooltipName .. "TextLeft" .. i]
-        local text = line and line:GetText()
-        if text and string.find(text, textPart, 1, true) then return true end
-    end
-    return false
-end
-
--- Enhanced spell matching with patterns
-local function EnhancedDescMatch(talentDesc, spellName)
-    if not talentDesc or not spellName then return false end
-
-    -- Case-insensitive matching
-    local lowerDesc = string.lower(talentDesc)
-    local lowerSpell = string.lower(spellName)
-
-    -- Check for exact name match
-    if string.find(lowerDesc, lowerSpell, 1, true) then
-        return true
-    end
-
-    -- Check for spell name with punctuation variations
-    local spellPattern = string.gsub(lowerSpell, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%0")
-    if string.find(lowerDesc, spellPattern) then
-        return true
-    end
-
-    return false
-end
-
--- Safe wrapper for API calls
-local function SafeGetSpellInfo(spellID)
-    local success, info = pcall(C_Spell.GetSpellInfo, spellID)
-    return success and info or nil
-end
-
--- Memory management
-local function CleanupUnusedCache()
-    for spellID, data in pairs(talentCache) do
-        if not C_SpellBook.IsSpellKnown(spellID) then
-            talentCache[spellID] = nil
-        end
-    end
-end
-
--- Recent spells tracking
-function AscensionTooltip:AddToRecent(spellID)
-    local spellInfo = SafeGetSpellInfo(spellID)
-    if not spellInfo then return end
-
-    table.insert(recentSpells, 1, {
-        spellID = spellID,
-        time = GetTime(),
-        name = spellInfo.name or "Unknown"
-    })
-
-    -- Keep only recent entries
-    if #recentSpells > MAX_RECENT then
-        table.remove(recentSpells, MAX_RECENT + 1)
-    end
-end
-
--- Dependency check
-local function CheckDependencies()
-    if not LibStub then
-        print("|cffff0000AscensionTooltip requires Ace3 libraries|r")
-        return false
-    end
-    return true
-end
-
--- =========================================================================
--- VISUALIZATION & SCALING LOGIC
--- =========================================================================
-
-function AscensionTooltip:ApplyTooltipStyling(tooltip)
-    local db = self.db.profile
-    if not tooltip or not db then return end
-
-    if db.ClampToScreen then tooltip:SetClampedToScreen(true) end
-
-    -- Apply anchoring if not default
-    if db.AnchorPoint and db.AnchorPoint ~= "ANCHOR_CURSOR" then
-        tooltip:SetOwner(UIParent, db.AnchorPoint, db.AnchorOffsetX, db.AnchorOffsetY)
-    end
-
-    local alpha = (db.TooltipOpacity or 90) / 100
-    if not tooltip.SolidBg then
-        tooltip.SolidBg = tooltip:CreateTexture(nil, "BACKGROUND")
-        tooltip.SolidBg:SetPoint("TOPLEFT", tooltip, "TOPLEFT", 4, -4)
-        tooltip.SolidBg:SetPoint("BOTTOMRIGHT", tooltip, "BOTTOMRIGHT", -4, 4)
-    end
-    tooltip.SolidBg:SetColorTexture(db.BackgroundColor.r, db.BackgroundColor.g, db.BackgroundColor.b, alpha)
-    tooltip.SolidBg:Show()
-
-    if tooltip.NineSlice then
-        tooltip.NineSlice:SetCenterColor(0, 0, 0, 0)
-        tooltip.NineSlice:SetBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
-    end
-
-    local fontName, _, fontFlags = GameTooltipTextLeft1:GetFont()
-    local targetWidth = db.TooltipWidth or 350
-    local maxHeight = db.MaxHeight or 500
-
-    tooltip:SetMinimumWidth(targetWidth)
-
-    local function ApplyTextStyles(width)
-        for i = 1, tooltip:NumLines() do
-            local left = _G[tooltip:GetName() .. "TextLeft" .. i]
-            if left then
-                left:SetWidth(width - 20)
-                left:SetWordWrap(true)
-                left:SetFont(fontName, db.FontSize, fontFlags)
-            end
-        end
-    end
-
-    ApplyTextStyles(targetWidth)
-    tooltip:Show()
-
-    local currentHeight = tooltip:GetHeight()
-    if currentHeight > maxHeight and currentHeight > 0 then
-        local ratio = currentHeight / maxHeight
-        if ratio > 1.02 then
-            local maxWidthAllowed = UIParent:GetWidth() * 0.75
-            local newWidth = math.min(maxWidthAllowed, targetWidth * ratio * 1.05)
-            tooltip:SetMinimumWidth(newWidth)
-            ApplyTextStyles(newWidth)
-            tooltip:Show()
-        end
-    end
-end
 
 -- =========================================================================
 -- OPTIONS MENU (AceConfig)
@@ -450,7 +220,7 @@ function AscensionTooltip:GetOptions()
                             local count = 0
                             for k, _ in pairs(self.db.profile.UserWhitelist) do
                                 local spellID = tonumber(k)
-                                local spellInfo = SafeGetSpellInfo(spellID) or SafeGetSpellInfo(k)
+                                local spellInfo = self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)
                                 if spellInfo then
                                     local icon = spellInfo.iconID or 134400
                                     list = list ..
@@ -493,7 +263,7 @@ function AscensionTooltip:GetOptions()
                                     if spells == "" then return end
                                     local url = string.format("https://github.com/%s/%s/issues/new?title=%s&body=%s",
                                         self.db.profile.GithubUser, self.db.profile.GithubRepo,
-                                        URLEncode("Whitelist Report"), URLEncode(spells))
+                                        self:URLEncode("Whitelist Report"), self:URLEncode(spells))
                                     StaticPopup_Show("ASCENSION_TOOLTIP_REPORT", "Copy and paste into your browser:", nil,
                                         url)
                                 end,
@@ -563,7 +333,7 @@ function AscensionTooltip:GetOptions()
                             local count = 0
                             for k, _ in pairs(self.db.profile.UserBlacklist) do
                                 local spellID = tonumber(k)
-                                local spellInfo = SafeGetSpellInfo(spellID) or SafeGetSpellInfo(k)
+                                local spellInfo = self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)
                                 if spellInfo then
                                     local icon = spellInfo.iconID or 134400
                                     list = list ..
@@ -599,7 +369,7 @@ function AscensionTooltip:GetOptions()
                         type = "execute",
                         func = function()
                             self:Print("Recent spells:")
-                            for i, entry in ipairs(recentSpells) do
+                            for i, entry in ipairs(self.recentSpells or {}) do
                                 self:Print(string.format("%d. %s (ID: %d)", i, entry.name, entry.spellID))
                             end
                         end,
@@ -609,7 +379,9 @@ function AscensionTooltip:GetOptions()
                         name = "Clear Recent Spells",
                         type = "execute",
                         func = function()
-                            table.wipe(recentSpells)
+                            if self.recentSpells then
+                                table.wipe(self.recentSpells)
+                            end
                             self:Print("Recent spells cleared")
                         end,
                         order = 2,
@@ -634,196 +406,4 @@ function AscensionTooltip:GetOptions()
     options.args.profiles.order = 6
     options.args.profiles.inline = true
     return options
-end
-
--- =========================================================================
--- EVENTS & CORE LOGIC
--- =========================================================================
-
-function AscensionTooltip:OnInitialize()
-    if not CheckDependencies() then return end
-
-    self.db = LibStub("AceDB-3.0"):New("AscensionTooltipDB", defaults, true)
-
-    -- Register Options Table
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(ADDON_NAME, self:GetOptions())
-
-    -- Add to Blizzard Interface Options (Traditional Menu)
-    self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(ADDON_NAME, "Ascension Tooltip")
-
-    -- Slash Command
-    self:RegisterChatCommand("at", function()
-        LibStub("AceConfigDialog-3.0"):Open(ADDON_NAME)
-    end)
-
-    -- Add command to show recent spells
-    self:RegisterChatCommand("atrecent", function()
-        self:Print("Recent spells:")
-        for i, entry in ipairs(recentSpells) do
-            self:Print(string.format("%d. %s (ID: %d)", i, entry.name, entry.spellID))
-        end
-    end)
-
-    self:RegisterEvent("TRAIT_CONFIG_UPDATED", "UpdateTalentCache")
-    self:RegisterEvent("PLAYER_LOGIN", "UpdateTalentCache")
-
-    -- Register cleanup events
-    self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", CleanupUnusedCache)
-    C_Timer.NewTicker(300, CleanupUnusedCache)
-end
-
-function AscensionTooltip:UpdateTalentCache()
-    table.wipe(talentCache)
-    local configID = C_ClassTalents.GetActiveConfigID()
-    if not configID then return end
-    local configInfo = C_Traits.GetConfigInfo(configID)
-    if not configInfo then return end
-
-    for _, treeID in ipairs(configInfo.treeIDs) do
-        local nodes = C_Traits.GetTreeNodes(treeID)
-        for _, nodeID in ipairs(nodes) do
-            local nodeInfo = C_Traits.GetNodeInfo(configID, nodeID)
-            for _, entryID in ipairs(nodeInfo.entryIDs) do
-                local entryInfo = C_Traits.GetEntryInfo(configID, entryID)
-                if entryInfo and entryInfo.definitionID then
-                    local def = C_Traits.GetDefinitionInfo(entryInfo.definitionID)
-                    if def.spellID and C_SpellBook.IsSpellKnown(def.spellID) then
-                        local talent = Spell:CreateFromSpellID(def.spellID)
-                        talent:ContinueOnSpellLoad(function()
-                            talentCache[def.spellID] = {
-                                name = talent:GetSpellName(),
-                                desc = talent:GetSpellDescription()
-                            }
-                        end)
-                    end
-                end
-            end
-        end
-    end
-end
-
-local function SearchTreeCached(spellID, tooltip)
-    local db = AscensionTooltip.db.profile
-    if not db or tooltip.AscensionLastSpell == spellID then return end
-
-    if not tooltip.AscensionHooked then
-        tooltip:HookScript("OnTooltipCleared", function(self)
-            self.AscensionLastSpell = nil
-            if self.SolidBg then self.SolidBg:Hide() end
-        end)
-        tooltip.AscensionHooked = true
-    end
-
-    -- Enhanced combat handling with delay
-    if db.HideInCombat and InCombatLockdown() then
-        if db.CombatDelay > 0 then
-            C_Timer.After(db.CombatDelay, function()
-                if not InCombatLockdown() then
-                    SearchTreeCached(spellID, tooltip)
-                end
-            end)
-        end
-        AscensionTooltip:ApplyTooltipStyling(tooltip)
-        return
-    end
-
-    if db.DisableExtraInfo then
-        AscensionTooltip:ApplyTooltipStyling(tooltip)
-        return
-    end
-
-    if db.ShowOnModifier ~= "None" then
-        local modifierMap = { Shift = IsShiftKeyDown, Alt = IsAltKeyDown, Ctrl = IsControlKeyDown, Cmd = IsMetaKeyDown }
-        if not (modifierMap[db.ShowOnModifier] and modifierMap[db.ShowOnModifier]()) then
-            AscensionTooltip:ApplyTooltipStyling(tooltip)
-            return
-        end
-    end
-
-    local spellInfo = SafeGetSpellInfo(spellID)
-    if not spellInfo then return end
-
-    -- Add to recent spells
-    AscensionTooltip:AddToRecent(spellID)
-
-    -- Check if the main spell being hovered is blacklisted
-    if db.UserBlacklist[tostring(spellID)] or db.UserBlacklist[spellInfo.name] then
-        AscensionTooltip:ApplyTooltipStyling(tooltip)
-        return
-    end
-
-    local nameHex, descHex = RGBToHex(db.TalentNameColor.r, db.TalentNameColor.g, db.TalentNameColor.b),
-        RGBToHex(db.TalentDescColor.r, db.TalentDescColor.g, db.TalentDescColor.b)
-    local processedRun = {}
-
-    for talentID, talent in pairs(talentCache) do
-        -- Skip if this specific talent is blacklisted
-        if not (db.UserBlacklist[tostring(talentID)] or db.UserBlacklist[talent.name]) then
-            local isWhitelisted = masterWhitelist[spellID] and masterWhitelist[spellID][talentID]
-            local isUserWhitelisted = db.UserWhitelist[tostring(spellID)] or db.UserWhitelist[spellInfo.name]
-
-            -- Use enhanced description matching
-            local descMatch = talent.desc and (EnhancedDescMatch(talent.desc, spellInfo.name) or
-                (replacedSpells[spellID] and EnhancedDescMatch(talent.desc,
-                    SafeGetSpellInfo(replacedSpells[spellID]) and SafeGetSpellInfo(replacedSpells[spellID]).name or "")))
-
-            if (isWhitelisted or isUserWhitelisted or descMatch) then
-                if not processedRun[talent.name] and not IsLineInTooltip(tooltip, talent.name) then
-                    tooltip:AddLine(" ")
-
-                    if db.ShowTalentIcons then
-                        local spellInfo = SafeGetSpellInfo(talentID)
-                        local icon = spellInfo and spellInfo.iconID
-                        if icon then
-                            tooltip:AddLine(string.format("|T%d:18:18:0:0|t %s", icon, nameHex .. talent.name .. ":|r"))
-                            local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                            -- CHANGE: Removed "   " padding before description
-                            tooltip:AddLine(descHex .. safeDesc .. "|r", 1, 1, 1, true)
-                        else
-                            local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                            tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1,
-                                true)
-                        end
-                    else
-                        local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                        tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1, true)
-                    end
-
-                    processedRun[talent.name] = true
-                end
-            end
-        end
-    end
-
-    tooltip.AscensionLastSpell = spellID
-    AscensionTooltip:ApplyTooltipStyling(tooltip)
-end
-
-if TooltipDataProcessor then
-    TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip, data)
-        -- Rule: Nil check for data and data.type
-        if not data or not data.type then return end
-
-        -- Rule: Undefined global check for 'issecretvalue'
-        if issecretvalue and issecretvalue(data.type) then return end
-
-        if data.type == Enum.TooltipDataType.Spell and data.id then
-            -- Rule: Verify spell exists in book to avoid processing bad IDs
-            if C_SpellBook.IsSpellInSpellBook(data.id) then
-                SearchTreeCached(data.id, tooltip)
-            end
-        elseif data.type == Enum.TooltipDataType.Macro then
-            -- Rule: Deep nil check for lines structure
-            -- 1. Check if lines table exists
-            -- 2. Check if the first line exists
-            -- 3. Check if tooltipID exists inside the first line
-            if data.lines and data.lines[1] and data.lines[1].tooltipID then
-                local spellID = data.lines[1].tooltipID
-                -- Double check existence
-                if C_SpellBook.IsSpellInSpellBook(spellID) then
-                    SearchTreeCached(spellID, tooltip)
-                end
-            end
-        end
-    end)
 end
