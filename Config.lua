@@ -1,6 +1,11 @@
 local ADDON_NAME = "AscensionTooltip"
 local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 
+-- Constants for Reporting
+local GITHUB_USER = "AkaDoctorCode" -- Based on your TOC Author
+local GITHUB_REPO = "AscensionTooltip"
+local CURSEFORGE_URL = "https://www.curseforge.com/wow/addons/ascension-tooltip" -- Placeholder, update if needed
+
 -- =========================================================================
 -- STATIC POPUP CONFIGURATION
 -- =========================================================================
@@ -70,14 +75,14 @@ function AscensionTooltip:GetOptions()
                         name = "Base Width",
                         type = "range",
                         min = 200,
-                        max = 800,
-                        step = 1,
+                        max = 1000,
+                        step = 10,
                         get = function() return self.db.profile.TooltipWidth end,
                         set = function(_, v) self.db.profile.TooltipWidth = v end,
                         order = 1,
                     },
                     maxHeight = {
-                        name = "Max Height (Pixels)",
+                        name = "Height",
                         desc = "The tooltip will grow wider if it exceeds this height.",
                         type = "range",
                         min = 100,
@@ -218,18 +223,22 @@ function AscensionTooltip:GetOptions()
                         name = function()
                             local list = ""
                             local count = 0
-                            for k, _ in pairs(self.db.profile.UserWhitelist) do
-                                local spellID = tonumber(k)
-                                local spellInfo = self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)
-                                if spellInfo then
-                                    local icon = spellInfo.iconID or 134400
-                                    list = list ..
-                                        string.format("|T%d:18:18:0:0|t %s (|cff00ffff%d|r)\n", icon, spellInfo.name,
-                                            spellInfo.spellID)
-                                else
-                                    list = list .. "|cffff0000[?]|r " .. tostring(k) .. "\n"
+                            -- FIX: Added explicit check if UserWhitelist is nil (though defaults should handle it)
+                            if self.db.profile.UserWhitelist then
+                                for k, _ in pairs(self.db.profile.UserWhitelist) do
+                                    local spellID = tonumber(k)
+                                    -- Check if SafeGetSpellInfo exists before calling
+                                    local spellInfo = (self.SafeGetSpellInfo and (self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)))
+                                    if spellInfo then
+                                        local icon = spellInfo.iconID or 134400
+                                        list = list ..
+                                            string.format("|T%d:18:18:0:0|t %s (|cff00ffff%d|r)\n", icon, spellInfo.name,
+                                                spellInfo.spellID)
+                                    else
+                                        list = list .. "|cffff0000[?]|r " .. tostring(k) .. "\n"
+                                    end
+                                    count = count + 1
                                 end
-                                count = count + 1
                             end
                             if count == 0 then return "\n|cff888888Empty|r" end
                             return "\n" .. list
@@ -256,13 +265,16 @@ function AscensionTooltip:GetOptions()
                                 type = "execute",
                                 func = function()
                                     local spells = ""
-                                    for k, _ in pairs(self.db.profile.UserWhitelist) do
-                                        spells = spells ..
-                                            "- " .. k .. "\n"
+                                    if self.db.profile.UserWhitelist then
+                                        for k, _ in pairs(self.db.profile.UserWhitelist) do
+                                            spells = spells .. "- " .. k .. "\n"
+                                        end
                                     end
                                     if spells == "" then return end
+                                    
+                                    -- FIX: Use constants instead of missing db profile keys
                                     local url = string.format("https://github.com/%s/%s/issues/new?title=%s&body=%s",
-                                        self.db.profile.GithubUser, self.db.profile.GithubRepo,
+                                        GITHUB_USER, GITHUB_REPO,
                                         self:URLEncode("Whitelist Report"), self:URLEncode(spells))
                                     StaticPopup_Show("ASCENSION_TOOLTIP_REPORT", "Copy and paste into your browser:", nil,
                                         url)
@@ -274,7 +286,8 @@ function AscensionTooltip:GetOptions()
                                 desc = "Direct link to CurseForge comments page.",
                                 type = "execute",
                                 func = function()
-                                    local url = self.db.profile.CurseForgeURL or ""
+                                    -- FIX: Use constant
+                                    local url = CURSEFORGE_URL
                                     StaticPopup_Show("ASCENSION_TOOLTIP_REPORT", "Go here and paste your Raw Data:", nil,
                                         url)
                                 end,
@@ -286,7 +299,9 @@ function AscensionTooltip:GetOptions()
                                 type = "execute",
                                 func = function()
                                     local data = "AT_DATA:"
-                                    for k, _ in pairs(self.db.profile.UserWhitelist) do data = data .. k .. "," end
+                                    if self.db.profile.UserWhitelist then
+                                        for k, _ in pairs(self.db.profile.UserWhitelist) do data = data .. k .. "," end
+                                    end
                                     StaticPopup_Show("ASCENSION_TOOLTIP_REPORT", "Paste this in Discord or CurseForge:",
                                         nil, data)
                                 end,
@@ -331,18 +346,20 @@ function AscensionTooltip:GetOptions()
                         name = function()
                             local list = ""
                             local count = 0
-                            for k, _ in pairs(self.db.profile.UserBlacklist) do
-                                local spellID = tonumber(k)
-                                local spellInfo = self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)
-                                if spellInfo then
-                                    local icon = spellInfo.iconID or 134400
-                                    list = list ..
-                                        string.format("|T%d:18:18:0:0|t %s (|cffff6666%d|r)\n", icon, spellInfo.name,
-                                            spellInfo.spellID)
-                                else
-                                    list = list .. "|cffff0000[?]|r " .. tostring(k) .. "\n"
+                            if self.db.profile.UserBlacklist then
+                                for k, _ in pairs(self.db.profile.UserBlacklist) do
+                                    local spellID = tonumber(k)
+                                    local spellInfo = (self.SafeGetSpellInfo and (self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)))
+                                    if spellInfo then
+                                        local icon = spellInfo.iconID or 134400
+                                        list = list ..
+                                            string.format("|T%d:18:18:0:0|t %s (|cffff6666%d|r)\n", icon, spellInfo.name,
+                                                spellInfo.spellID)
+                                    else
+                                        list = list .. "|cffff0000[?]|r " .. tostring(k) .. "\n"
+                                    end
+                                    count = count + 1
                                 end
-                                count = count + 1
                             end
                             if count == 0 then return "\n|cff888888No blacklisted spells.|r" end
                             return "\n" .. list

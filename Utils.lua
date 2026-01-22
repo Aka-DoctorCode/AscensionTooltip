@@ -35,8 +35,12 @@ end
 
 -- Safe wrapper for API calls
 function AscensionTooltip:SafeGetSpellInfo(spellID)
-    local success, info = pcall(C_Spell.GetSpellInfo, spellID)
-    return success and info or nil
+    if not spellID then return nil end
+    local spellInfo = C_Spell.GetSpellInfo(spellID)
+    if spellInfo then
+        return spellInfo
+    end
+    return nil
 end
 
 -- Enhanced spell matching with patterns

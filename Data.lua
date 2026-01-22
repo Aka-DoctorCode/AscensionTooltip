@@ -41,6 +41,16 @@ AscensionTooltip.replacedSpells = {
     ---Affliction Warlock
     --Drain Soul replaces Shadow Bolt
     [388667] = 686,
+    -- Fire Breath
+    [382266] = 357208, 
+    -- Eternity Surge
+    [382411] = 359073,
+    -- Spiritbloom
+    [382731] = 367226,
+    -- Dream Breath
+    [382614] = 355936,
+    -- Upheaval
+    [396266] = 408092,
 }
 
 AscensionTooltip.masterWhitelist = {
@@ -50,6 +60,16 @@ AscensionTooltip.masterWhitelist = {
     [107428] = { [116680] = true, [388491] = true },
     [191837] = { [116680] = true, [388491] = true },
     [322101] = { [116680] = true, [388491] = true },
+    -- Fire Breath
+    [357208] = { [408083] = true },
+    -- Eternity Surge
+    [359073] = { [408083] = true },
+    -- Spiritbloom
+    [367226] = { [408083] = true },
+    -- Dream Breath
+    [355936] = { [408083] = true },
+    -- Upheaval
+    [408092] = { [408083] = true },
     [774] = { [33891] = true },
     [48438] = { [33891] = true },
     [8936] = { [33891] = true },

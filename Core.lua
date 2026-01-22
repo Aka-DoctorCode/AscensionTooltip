@@ -5,6 +5,8 @@ local talentCache = {}
 AscensionTooltip.recentSpells = {}
 local MAX_RECENT = 10
 
+local IsSpellKnown = (C_Spell and C_Spell.IsSpellKnown) or (C_SpellBook and C_SpellBook.IsSpellKnown) or _G.IsSpellKnown
+
 -- =========================================================================
 -- LOGIC
 -- =========================================================================
@@ -26,15 +28,6 @@ function AscensionTooltip:AddToRecent(spellID)
     end
 end
 
--- Memory management
-local function CleanupUnusedCache()
-    for spellID, data in pairs(talentCache) do
-        if not C_SpellBook.IsSpellKnown(spellID) then
-            talentCache[spellID] = nil
-        end
-    end
-end
-
 function AscensionTooltip:UpdateTalentCache()
     table.wipe(talentCache)
     local configID = C_ClassTalents.GetActiveConfigID()
@@ -46,11 +39,13 @@ function AscensionTooltip:UpdateTalentCache()
         local nodes = C_Traits.GetTreeNodes(treeID)
         for _, nodeID in ipairs(nodes) do
             local nodeInfo = C_Traits.GetNodeInfo(configID, nodeID)
-            for _, entryID in ipairs(nodeInfo.entryIDs) do
+            -- FIX: Check activeEntry to detect selected talents (Passive or Active) correctly
+            if nodeInfo.activeEntry then
+                local entryID = nodeInfo.activeEntry.entryID
                 local entryInfo = C_Traits.GetEntryInfo(configID, entryID)
                 if entryInfo and entryInfo.definitionID then
                     local def = C_Traits.GetDefinitionInfo(entryInfo.definitionID)
-                    if def.spellID and C_SpellBook.IsSpellKnown(def.spellID) then
+                    if def.spellID then
                         local talent = Spell:CreateFromSpellID(def.spellID)
                         talent:ContinueOnSpellLoad(function()
                             talentCache[def.spellID] = {
@@ -67,9 +62,12 @@ end
 
 function AscensionTooltip:ApplyTooltipStyling(tooltip)
     local db = self.db.profile
+    -- FIX: Explicit nil check for both arguments
     if not tooltip or not db then return end
 
-    if db.ClampToScreen then tooltip:SetClampedToScreen(true) end
+    if db.ClampToScreen then 
+        tooltip:SetClampedToScreen(true) 
+    end
 
     -- Apply anchoring if not default
     if db.AnchorPoint and db.AnchorPoint ~= "ANCHOR_CURSOR" then
@@ -90,7 +88,16 @@ function AscensionTooltip:ApplyTooltipStyling(tooltip)
         tooltip.NineSlice:SetBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
     end
 
-    local fontName, _, fontFlags = GameTooltipTextLeft1:GetFont()
+    -- FIX: Added safety check for GameTooltipTextLeft1
+    local fontName, fontHeight, fontFlags
+    if GameTooltipTextLeft1 then
+        fontName, fontHeight, fontFlags = GameTooltipTextLeft1:GetFont()
+    else
+        -- Fallback if font object is not ready
+        fontName = "Fonts\\FRIZQT__.TTF"
+        fontFlags = "OUTLINE"
+    end
+
     local targetWidth = db.TooltipWidth or 350
     local maxHeight = db.MaxHeight or 500
 
@@ -102,7 +109,9 @@ function AscensionTooltip:ApplyTooltipStyling(tooltip)
             if left then
                 left:SetWidth(width - 20)
                 left:SetWordWrap(true)
-                left:SetFont(fontName, db.FontSize, fontFlags)
+                if fontName then
+                    left:SetFont(fontName, db.FontSize, fontFlags)
+                end
             end
         end
     end
@@ -199,7 +208,6 @@ function AscensionTooltip:SearchTreeCached(spellID, tooltip)
                         if icon then
                             tooltip:AddLine(string.format("|T%d:18:18:0:0|t %s", icon, nameHex .. talent.name .. ":|r"))
                             local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                            -- CHANGE: Removed "   " padding before description
                             tooltip:AddLine(descHex .. safeDesc .. "|r", 1, 1, 1, true)
                         else
                             local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
@@ -247,10 +255,6 @@ function AscensionTooltip:OnInitialize()
 
     self:RegisterEvent("TRAIT_CONFIG_UPDATED", "UpdateTalentCache")
     self:RegisterEvent("PLAYER_LOGIN", "UpdateTalentCache")
-
-    -- Register cleanup events
-    self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", CleanupUnusedCache)
-    C_Timer.NewTicker(300, CleanupUnusedCache)
 end
 
 -- =========================================================================
@@ -259,28 +263,14 @@ end
 
 if TooltipDataProcessor then
     TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip, data)
-        -- Rule: Nil check for data and data.type
         if not data or not data.type then return end
 
-        -- Rule: Undefined global check for 'issecretvalue'
-        if issecretvalue and issecretvalue(data.type) then return end
-
         if data.type == Enum.TooltipDataType.Spell and data.id then
-            -- Rule: Verify spell exists in book to avoid processing bad IDs
-            if C_SpellBook.IsSpellInSpellBook(data.id) then
-                AscensionTooltip:SearchTreeCached(data.id, tooltip)
-            end
+            AscensionTooltip:SearchTreeCached(data.id, tooltip)
         elseif data.type == Enum.TooltipDataType.Macro then
-            -- Rule: Deep nil check for lines structure
-            -- 1. Check if lines table exists
-            -- 2. Check if the first line exists
-            -- 3. Check if tooltipID exists inside the first line
             if data.lines and data.lines[1] and data.lines[1].tooltipID then
                 local spellID = data.lines[1].tooltipID
-                -- Double check existence
-                if C_SpellBook.IsSpellInSpellBook(spellID) then
-                    AscensionTooltip:SearchTreeCached(spellID, tooltip)
-                end
+                AscensionTooltip:SearchTreeCached(spellID, tooltip)
             end
         end
     end)

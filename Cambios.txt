@@ -1,0 +1,2 @@
+- Lista de habilidadespor cambio de Version
+- Mejorar diseño para mantener todo dentro del tooltip cuando es mucha informacion.
