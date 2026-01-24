@@ -59,12 +59,14 @@ function AscensionTooltip:UpdateTalentCache()
                     local def = C_Traits.GetDefinitionInfo(entryInfo.definitionID)
                     if def.spellID then
                         local talent = Spell:CreateFromSpellID(def.spellID)
-                        talent:ContinueOnSpellLoad(function()
-                            talentCache[def.spellID] = {
-                                name = talent:GetSpellName(),
-                                desc = talent:GetSpellDescription()
-                            }
-                        end)
+                        if talent then
+                            talent:ContinueOnSpellLoad(function()
+                                talentCache[def.spellID] = {
+                                    name = talent:GetSpellName(),
+                                    desc = talent:GetSpellDescription()
+                                }
+                            end)
+                        end
                     end
                 end
             end
@@ -73,9 +75,8 @@ function AscensionTooltip:UpdateTalentCache()
 end
 
 function AscensionTooltip:ApplyTooltipStyling(tooltip)
+    if not tooltip or tooltip:IsForbidden() or not self.db or not self.db.profile then return end
     local db = self.db.profile
-    -- FIX: Explicit nil check for both arguments
-    if not tooltip or not db then return end
 
     if db.ClampToScreen then 
         tooltip:SetClampedToScreen(true) 
@@ -145,9 +146,6 @@ function AscensionTooltip:ApplyTooltipStyling(tooltip)
 end
 
 function AscensionTooltip:SearchTreeCached(spellID, tooltip)
-    local db = self.db.profile
-    if not db or tooltip.AscensionLastSpell == spellID then return end
-
     if not tooltip.AscensionHooked then
         tooltip:HookScript("OnTooltipCleared", function(self)
             self.AscensionLastSpell = nil
@@ -156,17 +154,23 @@ function AscensionTooltip:SearchTreeCached(spellID, tooltip)
         tooltip.AscensionHooked = true
     end
 
-    -- Enhanced combat handling with delay
-    if db.HideInCombat and InCombatLockdown() then
-        if db.CombatDelay > 0 then
-            C_Timer.After(db.CombatDelay, function()
-                if not InCombatLockdown() then
-                    self:SearchTreeCached(spellID, tooltip)
-                end
-            end)
-        end
-        self:ApplyTooltipStyling(tooltip)
-        return
+    if not tooltip or tooltip:IsForbidden() or not self.db or not self.db.profile then return end
+    local db = self.db.profile
+
+    self:ApplyTooltipStyling(tooltip)
+
+    if InCombatLockdown() then 
+        return 
+    end
+
+    if tooltip.AscensionLastSpell == spellID then return end
+
+    if not tooltip.AscensionHooked then
+        tooltip:HookScript("OnTooltipCleared", function(self)
+            self.AscensionLastSpell = nil
+            if self.SolidBg then self.SolidBg:Hide() end
+        end)
+        tooltip.AscensionHooked = true
     end
 
     if db.DisableExtraInfo then
@@ -275,14 +279,26 @@ end
 
 if TooltipDataProcessor then
     TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip, data)
-        if not data or not data.type then return end
+        if not tooltip or tooltip:IsForbidden() then return end
 
-        if data.type == Enum.TooltipDataType.Spell and data.id then
+        -- If in combat, apply style only and exit immediately
+        if InCombatLockdown() then
+            AscensionTooltip:ApplyTooltipStyling(tooltip)
+            return
+        end
+
+        -- Safe data access for out-of-combat processing
+        if not data or not data.type then return end
+        
+        local dataType = data.type
+        if dataType == Enum.TooltipDataType.Spell and data.id then
             AscensionTooltip:SearchTreeCached(data.id, tooltip)
-        elseif data.type == Enum.TooltipDataType.Macro then
+        elseif dataType == Enum.TooltipDataType.Macro then
             if data.lines and data.lines[1] and data.lines[1].tooltipID then
                 local spellID = data.lines[1].tooltipID
-                AscensionTooltip:SearchTreeCached(spellID, tooltip)
+                if spellID then
+                    AscensionTooltip:SearchTreeCached(spellID, tooltip)
+                end
             end
         end
     end)
