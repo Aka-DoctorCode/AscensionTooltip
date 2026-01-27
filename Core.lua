@@ -11,7 +11,11 @@
 -- derivative works without express written permission.
 -------------------------------------------------------------------------------
 local ADDON_NAME = "AscensionTooltip"
-local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
+local AscensionTooltip = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
+
+AscensionTooltip.masterWhitelist = {}
+AscensionTooltip.talentsMissingName = {}
+AscensionTooltip.replacedSpells = {}
 
 local talentCache = {}
 AscensionTooltip.recentSpells = {}
@@ -22,8 +26,6 @@ local IsSpellKnown = (C_Spell and C_Spell.IsSpellKnown) or (C_SpellBook and C_Sp
 -- =========================================================================
 -- LOGIC
 -- =========================================================================
-
--- Recent spells tracking
 function AscensionTooltip:AddToRecent(spellID)
     local spellInfo = self:SafeGetSpellInfo(spellID)
     if not spellInfo then return end
@@ -34,7 +36,6 @@ function AscensionTooltip:AddToRecent(spellID)
         name = spellInfo.name or "Unknown"
     })
 
-    -- Keep only recent entries
     if #self.recentSpells > MAX_RECENT then
         table.remove(self.recentSpells, MAX_RECENT + 1)
     end
@@ -51,8 +52,7 @@ function AscensionTooltip:UpdateTalentCache()
         local nodes = C_Traits.GetTreeNodes(treeID)
         for _, nodeID in ipairs(nodes) do
             local nodeInfo = C_Traits.GetNodeInfo(configID, nodeID)
-            -- FIX: Check activeEntry to detect selected talents (Passive or Active) correctly
-            if nodeInfo.activeEntry then
+            if nodeInfo and nodeInfo.activeEntry and nodeInfo.currentRank and nodeInfo.currentRank > 0 then
                 local entryID = nodeInfo.activeEntry.entryID
                 local entryInfo = C_Traits.GetEntryInfo(configID, entryID)
                 if entryInfo and entryInfo.definitionID then
@@ -189,10 +189,8 @@ function AscensionTooltip:SearchTreeCached(spellID, tooltip)
     local spellInfo = self:SafeGetSpellInfo(spellID)
     if not spellInfo then return end
 
-    -- Add to recent spells
     self:AddToRecent(spellID)
 
-    -- Check if the main spell being hovered is blacklisted
     if db.UserBlacklist[tostring(spellID)] or db.UserBlacklist[spellInfo.name] then
         self:ApplyTooltipStyling(tooltip)
         return
@@ -203,34 +201,33 @@ function AscensionTooltip:SearchTreeCached(spellID, tooltip)
     local processedRun = {}
 
     for talentID, talent in pairs(talentCache) do
-        -- Skip if this specific talent is blacklisted
         if not (db.UserBlacklist[tostring(talentID)] or db.UserBlacklist[talent.name]) then
             local isWhitelisted = self.masterWhitelist[spellID] and self.masterWhitelist[spellID][talentID]
             local isMissingName = self.talentsMissingName[spellID] and self.talentsMissingName[spellID][talentID]
             local isUserWhitelisted = db.UserWhitelist[tostring(spellID)] or db.UserWhitelist[spellInfo.name]
-
-            -- Use enhanced description matching
             local descMatch = talent.desc and (self:EnhancedDescMatch(talent.desc, spellInfo.name) or
                 (self.replacedSpells[spellID] and self:EnhancedDescMatch(talent.desc,
                     self:SafeGetSpellInfo(self.replacedSpells[spellID]) and self:SafeGetSpellInfo(self.replacedSpells[spellID]).name or "")))
 
             if (isWhitelisted or isMissingName or isUserWhitelisted or descMatch) then
                 if not processedRun[talentID] and not self:IsLineInTooltip(tooltip, talent.name) then
-                    tooltip:AddLine(" ")
 
                     if db.ShowTalentIcons then
-                        local spellInfo = self:SafeGetSpellInfo(talentID)
-                        local icon = spellInfo and spellInfo.iconID
+                        local talentSpellInfo = self:SafeGetSpellInfo(talentID)
+                        local icon = talentSpellInfo and talentSpellInfo.iconID
+                        
                         if icon then
-                            tooltip:AddLine(string.format("|T%d:18:18:0:0|t %s", icon, nameHex .. talent.name .. ":|r"))
+                            -- Case 1: Icon found, name and description on the same line using dynamic IconSize
+                            local iconSize = db.IconSize or 30
                             local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                            tooltip:AddLine(descHex .. safeDesc .. "|r", 1, 1, 1, true)
+                            tooltip:AddLine(string.format("|T%d:%d:%d:0:0|t %s %s", icon, iconSize, iconSize, nameHex .. talent.name .. ":|r", descHex .. safeDesc .. "|r"), 1, 1, 1, true)
                         else
+                            -- Case 2: Icon option ON, but icon not found (Fallback to text only)
                             local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
-                            tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1,
-                                true)
+                            tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1, true)
                         end
                     else
+                        -- Case 3: Icon option OFF (Text only)
                         local safeDesc = string.gsub(talent.desc, "|r", "|r" .. descHex)
                         tooltip:AddLine(nameHex .. talent.name .. ":|r " .. descHex .. safeDesc .. "|r", 1, 1, 1, true)
                     end
@@ -245,23 +242,29 @@ function AscensionTooltip:SearchTreeCached(spellID, tooltip)
     self:ApplyTooltipStyling(tooltip)
 end
 
+function AscensionTooltip:MODIFIER_STATE_CHANGED()
+    if not self.db or self.db.profile.ShowOnModifier == "None" or not GameTooltip:IsShown() then 
+        return 
+    end
+
+    local data = GameTooltip:GetTooltipData()
+    if data and data.type == Enum.TooltipDataType.Spell and data.id then
+        GameTooltip:SetSpellByID(data.id)
+    end
+end
+
 function AscensionTooltip:OnInitialize()
     if not self:CheckDependencies() then return end
 
     self.db = LibStub("AceDB-3.0"):New("AscensionTooltipDB", self.defaults, true)
 
-    -- Register Options Table
     LibStub("AceConfig-3.0"):RegisterOptionsTable(ADDON_NAME, self:GetOptions())
 
-    -- Add to Blizzard Interface Options (Traditional Menu)
     self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions(ADDON_NAME, "Ascension Tooltip")
 
-    -- Slash Command
     self:RegisterChatCommand("at", function()
         LibStub("AceConfigDialog-3.0"):Open(ADDON_NAME)
     end)
-
-    -- Add command to show recent spells
     self:RegisterChatCommand("atrecent", function()
         self:Print("Recent spells:")
         for i, entry in ipairs(self.recentSpells or {}) do
@@ -271,6 +274,7 @@ function AscensionTooltip:OnInitialize()
 
     self:RegisterEvent("TRAIT_CONFIG_UPDATED", "UpdateTalentCache")
     self:RegisterEvent("PLAYER_LOGIN", "UpdateTalentCache")
+    self:RegisterEvent("MODIFIER_STATE_CHANGED") 
 end
 
 -- =========================================================================
@@ -281,13 +285,11 @@ if TooltipDataProcessor then
     TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, function(tooltip, data)
         if not tooltip or tooltip:IsForbidden() then return end
 
-        -- If in combat, apply style only and exit immediately
         if InCombatLockdown() then
             AscensionTooltip:ApplyTooltipStyling(tooltip)
             return
         end
 
-        -- Safe data access for out-of-combat processing
         if not data or not data.type then return end
         
         local dataType = data.type

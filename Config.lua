@@ -14,9 +14,9 @@ local ADDON_NAME = "AscensionTooltip"
 local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 
 -- Constants for Reporting
-local GITHUB_USER = "AkaDoctorCode" -- Based on your TOC Author
+local GITHUB_USER = "AkaDoctorCode"
 local GITHUB_REPO = "AscensionTooltip"
-local CURSEFORGE_URL = "https://www.curseforge.com/wow/addons/ascension-tooltip" -- Placeholder, update if needed
+local CURSEFORGE_URL = "https://www.curseforge.com/wow/addons/ascension-tooltip"
 
 -- =========================================================================
 -- STATIC POPUP CONFIGURATION
@@ -52,17 +52,17 @@ AscensionTooltip.defaults = {
         TooltipOpacity = 90,
         ShowOnModifier = "None",
         DisableExtraInfo = false,
-        TalentNameColor = { r = 0.2, g = 1.0, b = 1.0, a = 1.0 },
-        TalentDescColor = { r = 1.0, g = 0.82, b = 0.0, a = 1.0 },
-        BackgroundColor = { r = 0.05, g = 0.05, b = 0.05 },
-        BorderColor = { r = 0.8, g = 0.8, b = 0.8, a = 1.0 },
+        TalentNameColor = { r = 0.2, g = 1.0, b = 1.0, a = 1.0 },    -- Cyan
+        TalentDescColor = { r = 1.0, g = 0.82, b = 0.0, a = 1.0 }, -- Yellow
+        BackgroundColor = { r = 0.00, g = 0.00, b = 0.00 }, -- Black
+        BorderColor = { r = 0.8, g = 0.8, b = 0.8, a = 0.0 }, -- Grey
         UserWhitelist = {},
         UserBlacklist = {},
         AnchorPoint = "ANCHOR_CURSOR",
         AnchorOffsetX = 0,
         AnchorOffsetY = 0,
         ShowTalentIcons = true,
-        CombatDelay = 0.5,
+        IconSize = 30,
     }
 }
 
@@ -157,23 +157,23 @@ function AscensionTooltip:GetOptions()
                         set = function(_, v) self.db.profile.AnchorPoint = v end,
                         order = 7,
                     },
-                    combatDelay = {
-                        name = "Combat Delay (seconds)",
-                        desc = "Delay tooltip updates when in combat",
-                        type = "range",
-                        min = 0,
-                        max = 2,
-                        step = 0.1,
-                        get = function() return self.db.profile.CombatDelay end,
-                        set = function(_, v) self.db.profile.CombatDelay = v end,
-                        order = 8,
-                    },
                     showIcons = {
                         name = "Show Talent Icons",
                         type = "toggle",
                         get = function() return self.db.profile.ShowTalentIcons end,
                         set = function(_, v) self.db.profile.ShowTalentIcons = v end,
                         order = 9,
+                    },
+                    iconSize = {
+                        name = "Icon Size",
+                        type = "range",
+                        min = 16,
+                        max = 64,
+                        step = 1,
+                        get = function() return self.db.profile.IconSize end,
+                        set = function(_, v) self.db.profile.IconSize = v end,
+                        disabled = function() return not self.db.profile.ShowTalentIcons end,
+                        order = 10,
                     },
                 }
             },
@@ -361,7 +361,10 @@ function AscensionTooltip:GetOptions()
                             if self.db.profile.UserBlacklist then
                                 for k, _ in pairs(self.db.profile.UserBlacklist) do
                                     local spellID = tonumber(k)
-                                    local spellInfo = (self.SafeGetSpellInfo and (self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)))
+                                    local spellInfo = nil
+                                    if AscensionTooltip.SafeGetSpellInfo then
+                                        spellInfo = AscensionTooltip:SafeGetSpellInfo(spellID) or AscensionTooltip:SafeGetSpellInfo(k)
+                                    end
                                     if spellInfo then
                                         local icon = spellInfo.iconID or 134400
                                         list = list ..

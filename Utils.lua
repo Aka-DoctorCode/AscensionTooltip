@@ -34,23 +34,18 @@ function AscensionTooltip:URLEncode(str)
 end
 
 function AscensionTooltip:IsLineInTooltip(tooltip, textPart)
-    if InCombatLockdown() or not textPart or textPart == "" then return false end
+    if InCombatLockdown() or not tooltip or not textPart or textPart == "" then return false end
     
-    local tooltipName = tooltip:GetName()
-    if not tooltipName then return false end
-    
-    local numLines = tooltip:NumLines()
-    if not numLines then return false end
-
-    for i = 1, numLines do
-        local line = _G[tooltipName .. "TextLeft" .. i]
-        if line and line.GetText then
-            local success, text = pcall(line.GetText, line)
-            if success and text and string.find(text, textPart, 1, true) then 
-                return true 
+    local regions = { tooltip:GetRegions() }
+    for _, region in ipairs(regions) do
+        if region and region:IsObjectType("FontString") then
+            local success, text = pcall(region.GetText, region)
+            if success and text and string.find(text, textPart, 1, true) then
+                return true
             end
         end
     end
+
     return false
 end
 

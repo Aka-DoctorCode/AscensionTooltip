@@ -2,7 +2,7 @@
 ## Title: Ascension Tooltip
 ## Notes: Enhanced tooltip display for Ascension talent information.
 ## Author: AkaDoctorCode
-## Version: 5.0.3
+## Version: 5.1.0
 ## SavedVariables: AscensionTooltipDB
 
 # Librerías Ace3 y dependencias
@@ -21,7 +21,7 @@ Libs\AceTimer-3.0\AceTimer-3.0.xml
 AscensionTooltip.lua
 
 # Modules
-Data.lua
-Utils.lua
-Config.lua
 Core.lua
+Utils.lua
+Data.lua
+Config.lua
