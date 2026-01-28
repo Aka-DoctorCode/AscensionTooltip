@@ -2,8 +2,9 @@
 ## Title: Ascension Tooltip
 ## Notes: Enhanced tooltip display for Ascension talent information.
 ## Author: AkaDoctorCode
-## Version: 5.1.0
+## Version: 19
 ## SavedVariables: AscensionTooltipDB
+## IconTexture: Interface\AddOns\AscensionNotes\Media\AkaDoctorCode.png
 
 # Librerías Ace3 y dependencias
 Libs\LibStub\LibStub.lua

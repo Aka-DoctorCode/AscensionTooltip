@@ -1,6 +1,49 @@
-lightweight tag d8ae8ce5ce1a1c6bad992cdc953dfb89e256389a V5.0.2
+lightweight tag 7ecfb6385c1cfe2951ab8e4a20f95f5bcc1cec5c V01
 Author:	Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
-Date:	Fri Jan 23 09:47:13 2026 -0400
+Date:	Tue Jan 27 02:32:05 2026 -0400
+
+commit 7ecfb6385c1cfe2951ab8e4a20f95f5bcc1cec5c
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Tue Jan 27 02:32:05 2026 -0400
+
+    Delete Cambios.txt
+
+commit 280a910485cd4eeb36756d9aab32f31ade5d4918
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Tue Jan 27 02:30:10 2026 -0400
+
+    Update .gitignore
+
+commit c0bd7222ca51168bfa8da257cdc1338d1029441c
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Tue Jan 27 02:28:54 2026 -0400
+
+    V5.1.0
+    
+    Bug fix:
+    - The tooltip was not loaded when a modifier needs to be used if the modifier is not pressed before hovering over the skill.
+    - The tooltip was not loading, only loading the skills known to the player.
+    
+    Add:
+    - You can make the icon larger inside the tooltip
+    
+    Remove:
+    - combat delay logic and option
+
+commit 1c3bec26bd9cd7dcb2a4d94b8f8f769df606ac1f
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Sat Jan 24 01:46:35 2026 -0400
+
+    Update AscensionTooltip.toc
+
+commit 4ada7ae9dac31d9215c7fc7345bfd52658d8b8ba
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Sat Jan 24 01:45:21 2026 -0400
+
+    V5.0.2
+    
+    Bug fix:
+    - Prevent the tooltip to try to reach secret values during combat.
 
 commit d8ae8ce5ce1a1c6bad992cdc953dfb89e256389a
 Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
@@ -9,4 +52,37 @@ Date:   Fri Jan 23 09:47:13 2026 -0400
     License change
     
     License change to all right reserved
+
+commit 96f82640f1083bda55bb5032941906e37a591496
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Wed Jan 21 20:51:13 2026 -0400
+
+    5.0.1
+    
+    Bug fixes for 12.0 compatibility
+
+commit 22bbc6829ad0a3a0b56bb1e2db9f518c05d220d3
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Tue Jan 20 02:48:57 2026 -0400
+
+    V5.0.0
+    
+    Code modularization for easy maintenance.
+
+commit c373bba9dd547d14158ba55b5c71477f5e3cafec
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Mon Jan 19 02:18:17 2026 -0400
+
+    V4.1.1
+    
+    V4.1.1
+
+commit 3032f904fd28d97ea9970da3d9503d5fba547f42
+Author: Aka-DoctorCode <37858279+Aka-DoctorCode@users.noreply.github.com>
+Date:   Thu Jan 8 21:51:13 2026 -0500
+
+    V4.1.0
+    
+    -Lifeforce Mender added as a special case
+    -Tooltip appearance should now apply to all tooltips (Fonts, size, etc).
 
