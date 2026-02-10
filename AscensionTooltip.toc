@@ -18,9 +18,6 @@ Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceTimer-3.0\AceTimer-3.0.xml
 
-# Archivo principal del addon
-AscensionTooltip.lua
-
 # Modules
 Core.lua
 Utils.lua
