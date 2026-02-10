@@ -1,8 +1,8 @@
-## Interface: 120000
+## Interface: 120001
 ## Title: Ascension Tooltip
 ## Notes: Enhanced tooltip display for Ascension talent information.
 ## Author: AkaDoctorCode
-## Version: 19
+## Version: 20
 ## SavedVariables: AscensionTooltipDB
 ## IconTexture: Interface\AddOns\AscensionNotes\Media\AkaDoctorCode.png
 

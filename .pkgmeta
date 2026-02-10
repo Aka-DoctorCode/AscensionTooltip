@@ -1,5 +1,7 @@
 package-as: AscensionTooltip
 
+enable-nolib-creation: no
+
 ignore:
   - .git
   - .gitignore
@@ -7,6 +9,7 @@ ignore:
   - .pkgmeta
   - __MACOSX
   - .DS_Store
+  - .txt
 
 externals:
   Libs/LibStub:

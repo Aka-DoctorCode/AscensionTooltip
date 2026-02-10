@@ -2,7 +2,7 @@
 -- Project: AscensionTooltip
 -- Author: Aka-DoctorCode 
 -- File: Data.lua
--- Version: 12.0.0
+-- Version: 20
 -------------------------------------------------------------------------------
 -- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
 --
@@ -38,31 +38,31 @@ local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 AscensionTooltip.replacedSpells = {
     -- Shaman Spells
     [378081] = 443454, -- Ancestral Swiftness replaces Natures Swiftness
---     ----Preservation Evoker
---     --Chronoflame replaces Living Flame
---     [431443] = 361469,
---     ----Mistweaver Monk
---     --Rushing Wind Kick replaces Rising Sun Kick
---     [467307] = 107428,
---     -----Farseer Shaman
---     --Ancestral Swiftness replaces Natures Swiftness
---     [443454] = 378081,
---     ----Subtlety Rogue
---     --Gloomblade replaces Backstab
---     [200758] = 53,
---     ---Affliction Warlock
---     --Drain Soul replaces Shadow Bolt
---     [388667] = 686,
---     -- Fire Breath
---     [382266] = 357208, 
---     -- Eternity Surge
---     [382411] = 359073,
---     -- Spiritbloom
---     [382731] = 367226,
---     -- Dream Breath
---     [382614] = 355936,
---     -- Upheaval
---     [396266] = 408092,
+    -- ----Preservation Evoker
+    -- --Chronoflame replaces Living Flame
+    -- [431443] = 361469,
+    -- ----Mistweaver Monk
+    -- --Rushing Wind Kick replaces Rising Sun Kick
+    -- [467307] = 107428,
+    -- -----Farseer Shaman
+    -- --Ancestral Swiftness replaces Natures Swiftness
+    -- [443454] = 378081,
+    -- ----Subtlety Rogue
+    -- --Gloomblade replaces Backstab
+    -- [200758] = 53,
+    -- ---Affliction Warlock
+    -- --Drain Soul replaces Shadow Bolt
+    -- [388667] = 686,
+    -- -- Fire Breath
+    -- [382266] = 357208, 
+    -- -- Eternity Surge
+    -- [382411] = 359073,
+    -- -- Spiritbloom
+    -- [382731] = 367226,
+    -- -- Dream Breath
+    -- [382614] = 355936,
+    -- -- Upheaval
+    -- [396266] = 408092,
 }
 
 -- AscensionTooltip.masterWhitelist = {
