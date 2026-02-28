@@ -1,26 +1,26 @@
 -------------------------------------------------------------------------------
--- Project: AscensionTooltip
--- Author: Aka-DoctorCode 
+-- Project: Ascension Tooltip
+-- Author: Aka-DoctorCode
 -- File: Config.lua
--- Version: 20
+-- Version: @project-version@
 -------------------------------------------------------------------------------
 -- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
 --
 -- This software and its source code are the exclusive property of the author.
--- No part of this file may be copied, modified, redistributed, or used in 
+-- No part of this file may be copied, modified, redistributed, or used in
 -- derivative works without express written permission.
 -------------------------------------------------------------------------------
-local ADDON_NAME = "AscensionTooltip"
-local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
+local addonName = ...
+---@class AT : AceAddon
+local AT = LibStub("AceAddon-3.0"):GetAddon(addonName) ---@type AT
+local githubUser = "AkaDoctorCode"
+local githubRepo = "AT"
+local curseforgeUrl = "https://www.curseforge.com/wow/addons/ascension-tooltip"
 
--- Constants for Reporting
-local GITHUB_USER = "AkaDoctorCode"
-local GITHUB_REPO = "AscensionTooltip"
-local CURSEFORGE_URL = "https://www.curseforge.com/wow/addons/ascension-tooltip"
-
--- =========================================================================
+-------------------------------------------------------------------------------
 -- STATIC POPUP CONFIGURATION
--- =========================================================================
+-------------------------------------------------------------------------------
+
 StaticPopupDialogs["ASCENSION_TOOLTIP_REPORT"] = {
     text = "%s",
     button1 = "Close",
@@ -39,10 +39,11 @@ StaticPopupDialogs["ASCENSION_TOOLTIP_REPORT"] = {
     preferredIndex = 3,
 }
 
--- =========================================================================
+-------------------------------------------------------------------------------
 -- DEFAULT SETTINGS (AceDB)
--- =========================================================================
-AscensionTooltip.defaults = {
+-------------------------------------------------------------------------------
+
+AT.defaults = {
     profile = {
         TooltipWidth = 350,
         FontSize = 12,
@@ -52,10 +53,10 @@ AscensionTooltip.defaults = {
         TooltipOpacity = 90,
         ShowOnModifier = "None",
         DisableExtraInfo = false,
-        TalentNameColor = { r = 0.2, g = 1.0, b = 1.0, a = 1.0 },    -- Cyan
-        TalentDescColor = { r = 1.0, g = 0.82, b = 0.0, a = 1.0 }, -- Yellow
-        BackgroundColor = { r = 0.00, g = 0.00, b = 0.00 }, -- Black
-        BorderColor = { r = 0.8, g = 0.8, b = 0.8, a = 0.0 }, -- Grey
+        TalentNameColor = { r = 0.2, g = 1.0, b = 1.0, a = 1.0 },  -- #33ffff (Cyan)
+        TalentDescColor = { r = 1.0, g = 0.82, b = 0.0, a = 1.0 }, -- #ffd100 (Yellow)
+        BackgroundColor = { r = 0.00, g = 0.00, b = 0.00 },        -- #000000 (Black)
+        BorderColor = { r = 0.8, g = 0.8, b = 0.8, a = 0.0 },      -- #cccccc (Grey)
         UserWhitelist = {},
         UserBlacklist = {},
         AnchorPoint = "ANCHOR_CURSOR",
@@ -66,14 +67,14 @@ AscensionTooltip.defaults = {
     }
 }
 
--- =========================================================================
+-------------------------------------------------------------------------------
 -- OPTIONS MENU (AceConfig)
--- =========================================================================
+-------------------------------------------------------------------------------
 
-function AscensionTooltip:GetOptions()
+function AT:getOptions()
     local options = {
         name = "Ascension Tooltip",
-        handler = AscensionTooltip,
+        handler = AT,
         type = "group",
         desc = "Detailed talent information and interactive spell-talent relationship insights for Project Ascension.",
         args = {
@@ -235,17 +236,17 @@ function AscensionTooltip:GetOptions()
                         name = function()
                             local list = ""
                             local count = 0
-                            -- FIX: Added explicit check if UserWhitelist is nil (though defaults should handle it)
                             if self.db.profile.UserWhitelist then
                                 for k, _ in pairs(self.db.profile.UserWhitelist) do
                                     local spellID = tonumber(k)
-                                    -- Check if SafeGetSpellInfo exists before calling
-                                    local spellInfo = (self.SafeGetSpellInfo and (self:SafeGetSpellInfo(spellID) or self:SafeGetSpellInfo(k)))
+                                    local spellInfo = spellID and self:safeGetSpellInfo(spellID) or
+                                    self:safeGetSpellInfo(k)
+
                                     if spellInfo then
-                                        local icon = spellInfo.iconID or 134400
+                                        local iconID = spellInfo.iconID or 134400
                                         list = list ..
-                                            string.format("|T%d:18:18:0:0|t %s (|cff00ffff%d|r)\n", icon, spellInfo.name,
-                                                spellInfo.spellID)
+                                        string.format("|T%d:18:18:0:0|t %s (|cff00ffff%d|r)\n", iconID, spellInfo.name,
+                                            spellInfo.spellID)
                                     else
                                         list = list .. "|cffff0000[?]|r " .. tostring(k) .. "\n"
                                     end
@@ -283,11 +284,9 @@ function AscensionTooltip:GetOptions()
                                         end
                                     end
                                     if spells == "" then return end
-                                    
-                                    -- FIX: Use constants instead of missing db profile keys
                                     local url = string.format("https://github.com/%s/%s/issues/new?title=%s&body=%s",
-                                        GITHUB_USER, GITHUB_REPO,
-                                        self:URLEncode("Whitelist Report"), self:URLEncode(spells))
+                                        githubUser, githubRepo,
+                                        self:urlEncode("Whitelist Report"), self:urlEncode(spells))
                                     StaticPopup_Show("ASCENSION_TOOLTIP_REPORT", "Copy and paste into your browser:", nil,
                                         url)
                                 end,
@@ -298,8 +297,7 @@ function AscensionTooltip:GetOptions()
                                 desc = "Direct link to CurseForge comments page.",
                                 type = "execute",
                                 func = function()
-                                    -- FIX: Use constant
-                                    local url = CURSEFORGE_URL
+                                    local url = curseforgeUrl
                                     StaticPopup_Show("ASCENSION_TOOLTIP_REPORT", "Go here and paste your Raw Data:", nil,
                                         url)
                                 end,
@@ -361,15 +359,14 @@ function AscensionTooltip:GetOptions()
                             if self.db.profile.UserBlacklist then
                                 for k, _ in pairs(self.db.profile.UserBlacklist) do
                                     local spellID = tonumber(k)
-                                    local spellInfo = nil
-                                    if AscensionTooltip.SafeGetSpellInfo then
-                                        spellInfo = AscensionTooltip:SafeGetSpellInfo(spellID) or AscensionTooltip:SafeGetSpellInfo(k)
-                                    end
+                                    local spellInfo = spellID and self:safeGetSpellInfo(spellID) or
+                                    self:safeGetSpellInfo(k)
+
                                     if spellInfo then
-                                        local icon = spellInfo.iconID or 134400
+                                        local iconID = spellInfo.iconID or 134400
                                         list = list ..
-                                            string.format("|T%d:18:18:0:0|t %s (|cffff6666%d|r)\n", icon, spellInfo.name,
-                                                spellInfo.spellID)
+                                        string.format("|T%d:18:18:0:0|t %s (|cffff6666%d|r)\n", iconID, spellInfo.name,
+                                            spellInfo.spellID)
                                     else
                                         list = list .. "|cffff0000[?]|r " .. tostring(k) .. "\n"
                                     end
@@ -434,8 +431,10 @@ function AscensionTooltip:GetOptions()
             },
         }
     }
-    -- Ensure profiles group is consistent with the UI
+    ---@diagnostic disable-next-line: inject-field
     options.args.profiles.order = 6
+    ---@diagnostic disable-next-line: inject-field
     options.args.profiles.inline = true
+
     return options
 end

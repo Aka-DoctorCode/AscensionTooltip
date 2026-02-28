@@ -1,41 +1,55 @@
 -------------------------------------------------------------------------------
--- Project: AscensionTooltip
--- Author: Aka-DoctorCode 
+-- Project: Ascension Tooltip
+-- Author: Aka-DoctorCode
 -- File: Utils.lua
--- Version: 20
+-- Version: @project-version@
 -------------------------------------------------------------------------------
 -- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
 --
 -- This software and its source code are the exclusive property of the author.
--- No part of this file may be copied, modified, redistributed, or used in 
+-- No part of this file may be copied, modified, redistributed, or used in
 -- derivative works without express written permission.
 -------------------------------------------------------------------------------
-local ADDON_NAME = "AscensionTooltip"
-local AscensionTooltip = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 
--- =========================================================================
+local addonName = ...
+
+---@class AT : AceAddon
+local AT = LibStub("AceAddon-3.0"):GetAddon(addonName) ---@type AT
+
+-------------------------------------------------------------------------------
 -- UTILITY FUNCTIONS
--- =========================================================================
+-------------------------------------------------------------------------------
 
-function AscensionTooltip:RGBToHex(r, g, b)
+---@param r number?
+---@param g number?
+---@param b number?
+---@return string
+function AT:rgbToHex(r, g, b)
+    -- Format: |cffRRGGBB
     return string.format("|cff%02x%02x%02x", math.floor((r or 1) * 255), math.floor((g or 1) * 255),
         math.floor((b or 1) * 255))
 end
 
-function AscensionTooltip:URLEncode(str)
-    if str then
-        str = string.gsub(str, "\n", "\r\n")
-        str = string.gsub(str, "([^%w %-%_%.%~])", function(c)
-            return string.format("%%%02X", string.byte(c))
-        end)
-        str = string.gsub(str, " ", "+")
-    end
-    return str
+---@param str string?
+---@return string?
+function AT:urlEncode(str)
+    if not str then return nil end
+
+    local encodedStr = string.gsub(str, "\n", "\r\n")
+    encodedStr = string.gsub(encodedStr, "([^%w %-%_%.%~])", function(char)
+        return string.format("%%%02X", string.byte(char))
+    end)
+    encodedStr = string.gsub(encodedStr, " ", "+")
+
+    return encodedStr
 end
 
-function AscensionTooltip:IsLineInTooltip(tooltip, textPart)
+---@param tooltip table?
+---@param textPart string?
+---@return boolean
+function AT:isLineInTooltip(tooltip, textPart)
     if InCombatLockdown() or not tooltip or not textPart or textPart == "" then return false end
-    
+
     local regions = { tooltip:GetRegions() }
     for _, region in ipairs(regions) do
         if region and region:IsObjectType("FontString") then
@@ -49,30 +63,47 @@ function AscensionTooltip:IsLineInTooltip(tooltip, textPart)
     return false
 end
 
--- Safe wrapper for API calls
-function AscensionTooltip:SafeGetSpellInfo(spellID)
-    if not spellID then return nil end
+---@param spellID number|string?
+---@return table?
+function AT:safeGetSpellInfo(spellID)
+    if not spellID or not C_Spell then return nil end
+
     local spellInfo = C_Spell.GetSpellInfo(spellID)
     if spellInfo then
         return spellInfo
     end
+
     return nil
 end
 
--- Enhanced spell matching with patterns
-function AscensionTooltip:EnhancedDescMatch(talentDesc, spellName)
+--- Strips WoW UI color codes from a string to ensure accurate matching
+---@param text string?
+---@return string?
+function AT:stripColors(text)
+    if not text then return nil end
+    -- Removes |cffXXXXXX and |r tags
+    local cleanText = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+    cleanText = string.gsub(cleanText, "|r", "")
+    return cleanText
+end
+
+---@param talentDesc string?
+---@param spellName string?
+---@return boolean
+function AT:enhancedDescMatch(talentDesc, spellName)
     if not talentDesc or not spellName then return false end
 
-    -- Case-insensitive matching
-    local lowerDesc = string.lower(talentDesc)
-    local lowerSpell = string.lower(spellName)
+    -- Phase 3: Sanitize strings before matching (Cooltips implementation)
+    local cleanDesc = self:stripColors(talentDesc) or talentDesc
+    local cleanSpell = self:stripColors(spellName) or spellName
 
-    -- Check for exact name match
+    local lowerDesc = string.lower(cleanDesc)
+    local lowerSpell = string.lower(cleanSpell)
+
     if string.find(lowerDesc, lowerSpell, 1, true) then
         return true
     end
 
-    -- Check for spell name with punctuation variations
     local spellPattern = string.gsub(lowerSpell, "[%(%)%.%+%-%*%?%[%]%^%$%%]", "%%%0")
     if string.find(lowerDesc, spellPattern) then
         return true
@@ -81,11 +112,31 @@ function AscensionTooltip:EnhancedDescMatch(talentDesc, spellName)
     return false
 end
 
--- Dependency check
-function AscensionTooltip:CheckDependencies()
-    if not LibStub then
-        print("|cffff0000AscensionTooltip requires Ace3 libraries|r")
-        return false
+---@param className string?
+---@return string
+function AT:getClassColor(className)
+    if not className then return "ffffff" end -- #ffffff
+
+    local color = RAID_CLASS_COLORS[className]
+    if color then
+        return color:GenerateHexColor()
     end
-    return true
+
+    return "ffffff" -- #ffffff
+end
+
+---@param itemID number?
+---@return table?
+function AT:safeGetItemInfo(itemID)
+    if not itemID then return nil end
+
+    -- Using C_Item for modern API support
+    local item = Item:CreateFromItemID(itemID)
+    if not item:IsItemEmpty() then
+        item:ContinueOnItemLoad(function()
+            -- Callback logic for async data
+        end)
+    end
+
+    return item
 end
