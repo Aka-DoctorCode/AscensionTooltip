@@ -5,7 +5,7 @@
 ## Category: Tooltip
 ## Version: @project-version@
 ## SavedVariables: AscensionTooltipDB
-## RequiredDeps: AscensionQoL
+## RequiredDeps: AscensionSuit
 ## IconTexture: Interface\AddOns\AscensionTooltip\Media\AkaDoctorCode.png
 ## X-Curse-Project-ID: 1404712
 # X-Wago-ID: 
