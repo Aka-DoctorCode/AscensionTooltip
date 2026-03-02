@@ -2,7 +2,7 @@ package-as: AscensionTooltip
 license-output: LICENSE
 enable-nolib-creation: no
 required-dependencies:
-    - AscensionQoL
+    - AscensionSuit
 ignore:
     - __MACOSX
     - pkgmeta.yaml
