@@ -150,9 +150,10 @@ function AT:applyTooltipStyling(tooltip)
     tooltip.SolidBg:SetColorTexture(db.BackgroundColor.r, db.BackgroundColor.g, db.BackgroundColor.b, alpha)
     tooltip.SolidBg:Show()
     if tooltip.NineSlice then
-        tooltip.NineSlice:SetCenterColor(0, 0, 0, 0) -- #00000000
+        tooltip.NineSlice:SetCenterColor(0, 0, 0, 0)
         tooltip.NineSlice:SetBorderColor(db.BorderColor.r, db.BorderColor.g, db.BorderColor.b, db.BorderColor.a or 1)
     end
+
     local fontName, fontHeight, fontFlags
     if GameTooltipTextLeft1 then
         fontName, fontHeight, fontFlags = GameTooltipTextLeft1:GetFont()
@@ -163,6 +164,7 @@ function AT:applyTooltipStyling(tooltip)
     local targetWidth = db.TooltipWidth or 350
     local maxHeight = db.MaxHeight or 500
     tooltip:SetMinimumWidth(targetWidth)
+
     local function applyTextStyles(width)
         for i = 1, tooltip:NumLines() do
             local left = _G[tooltip:GetName() .. "TextLeft" .. i]
@@ -177,17 +179,21 @@ function AT:applyTooltipStyling(tooltip)
     end
     applyTextStyles(targetWidth)
     tooltip:Show()
-    local currentHeight = tooltip:GetHeight()
-    if currentHeight > maxHeight and currentHeight > 0 then
-        local ratio = currentHeight / maxHeight
-        if ratio > 1.02 then
-            local maxWidthAllowed = UIParent:GetWidth() * 0.75
-            local newWidth = math.min(maxWidthAllowed, targetWidth * ratio * 1.05)
-            tooltip:SetMinimumWidth(newWidth)
-            applyTextStyles(newWidth)
-            tooltip:Show()
+
+    -- Height adjustment wrapped in pcall to avoid taint errors
+    pcall(function()
+        local currentHeight = tooltip:GetHeight()
+        if currentHeight > maxHeight and currentHeight > 0 then
+            local ratio = currentHeight / maxHeight
+            if ratio > 1.02 then
+                local maxWidthAllowed = UIParent:GetWidth() * 0.75
+                local newWidth = math.min(maxWidthAllowed, targetWidth * ratio * 1.05)
+                tooltip:SetMinimumWidth(newWidth)
+                applyTextStyles(newWidth)
+                tooltip:Show()
+            end
         end
-    end
+    end)
 end
 
 function AT:buildStaticMatchCache(spellID, spellInfo)
