@@ -2,7 +2,7 @@
 -- Project: Ascension Tooltip
 -- Author: Aka-DoctorCode
 -- File: Utils.lua
--- Version: @project-version@
+-- Version: V23
 -------------------------------------------------------------------------------
 -- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
 --
@@ -54,8 +54,13 @@ function AT:isLineInTooltip(tooltip, textPart)
     for _, region in ipairs(regions) do
         if region and region:IsObjectType("FontString") then
             local success, text = pcall(region.GetText, region)
-            if success and text and string.find(text, textPart, 1, true) then
-                return true
+            -- Only proceed if we got a regular string (not a tainted secret string)
+            if success and text and type(text) == "string" then
+                -- Guard against taint errors when searching the text
+                local ok, pos = pcall(string.find, text, textPart, 1, true)
+                if ok and pos then
+                    return true
+                end
             end
         end
     end

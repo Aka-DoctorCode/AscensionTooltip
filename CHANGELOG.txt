@@ -1,4 +1,4 @@
 <h1>@project-version@</h1>
 <ul>
-    <li>BUG FIX: Fixed the tooltip height secret value issue.</li>
+    <li>BUG FIX: Fixed a function for adding a line to the tooltip, which was giving me secret values bugs.</li>
 </ul>
