@@ -1,4 +1,5 @@
 <h1>@project-version@</h1>
 <ul>
-    <li>BUG FIX: Fixed a function for adding a line to the tooltip, which was giving me secret values bugs.</li>
+    <li>.toc updated</li>
+    <li>Update packager to node 24</li>
 </ul>
