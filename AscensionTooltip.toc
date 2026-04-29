@@ -1,14 +1,14 @@
 ## Interface: 120005
 ## Title: Ascension Tooltip
-## Notes: Enhanced WOW Tooltips - Show all modifier for abilities and tooltip size modifier.
+## Notes: Enhanced tooltip displaying talent information.
 ## Author: AkaDoctorCode
 ## Category: Tooltip
-## Version: @project-version@
+## Version: V25
 ## SavedVariables: AscensionTooltipDB
 ## RequiredDeps: AscensionSuit
 ## IconTexture: Interface\AddOns\AscensionTooltip\Media\AkaDoctorCode.png
 ## X-Curse-Project-ID: 1404712
-## X-Wago-ID: b6mvV4KP
+# X-Wago-ID: 
 
 # Modules
 Core.lua
