@@ -1,42 +1,12 @@
 -------------------------------------------------------------------------------
--- Project: Ascension Tooltip
+-- Project: AscensionTooltip
 -- Author: Aka-DoctorCode
 -- File: Core.lua
--- Version: V25
 -------------------------------------------------------------------------------
--- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
---
--- This software and its source code are the exclusive property of the author.
--- No part of this file may be copied, modified, redistributed, or used in
--- derivative works without express written permission.
--------------------------------------------------------------------------------
+---@diagnostic disable: undefined-global, undefined-doc-name, inject-field
+
 local addonName = ...
 
----@class AT : AceAddon
----@field db table
----@field defaults table
----@field recentSpells table
----@field masterWhitelist table
----@field talentsMissingName table
----@field replacedSpells table
----@field optionsFrame table
----@field matchCache table
----@field updateTimer table|nil
----@field triggerTalentUpdate fun(self: AT)
----@field buildStaticMatchCache fun(self: AT, spellID: number|string, spellInfo: table): table
----@field getOptions fun(self: AT): table
----@field Print fun(self: AT, ...: any)
----@field RegisterChatCommand fun(self: AT, command: string, func: string|function)
----@field RegisterEvent fun(self: AT, event: string, method: string|function?)
----@field rgbToHex fun(self: AT, r: number?, g: number?, b: number?): string
----@field urlEncode fun(self: AT, str: string?): string
----@field isLineInTooltip fun(self: AT, tooltip: table?, textPart: string?): boolean
----@field safeGetSpellInfo fun(self: AT, spellID: number|string?): table?|nil
----@field enhancedDescMatch fun(self: AT, talentDesc: string?, spellName: string?): boolean
----@field getClassColor fun(self: AT, className: string?): string
----@field safeGetItemInfo fun(self: AT, itemID: number?): table?|nil
----@field CancelTimer fun(self: AT, timer: table|nil)
----@field ScheduleTimer fun(self: AT, method: string|function, delay: number, ...: any): table
 local AT = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 AT.masterWhitelist = {}
 AT.talentsMissingName = {}

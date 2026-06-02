@@ -3,7 +3,7 @@
 ## Notes: Enhanced WOW Tooltips - Show all modifier for abilities and tooltip size modifier.
 ## Author: AkaDoctorCode
 ## Category: Tooltip
-## Version: @project-version@
+## Version: V27
 ## SavedVariables: AscensionTooltipDB
 ## RequiredDeps: AscensionSuit
 ## IconTexture: Interface\AddOns\AscensionTooltip\Media\AkaDoctorCode.png

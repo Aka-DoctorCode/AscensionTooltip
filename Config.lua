@@ -1,18 +1,12 @@
 -------------------------------------------------------------------------------
--- Project: Ascension Tooltip
+-- Project: AscensionTooltip
 -- Author: Aka-DoctorCode
 -- File: Config.lua
--- Version: V25
 -------------------------------------------------------------------------------
--- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
---
--- This software and its source code are the exclusive property of the author.
--- No part of this file may be copied, modified, redistributed, or used in
--- derivative works without express written permission.
--------------------------------------------------------------------------------
+---@diagnostic disable: undefined-global, undefined-field, inject-field
+
 local addonName = ...
----@class AT : AceAddon
-local AT = LibStub("AceAddon-3.0"):GetAddon(addonName) ---@type AT
+local AT = LibStub("AceAddon-3.0"):GetAddon(addonName)
 local githubUser = "AkaDoctorCode"
 local githubRepo = "AT"
 local curseforgeUrl = "https://www.curseforge.com/wow/addons/ascension-tooltip"

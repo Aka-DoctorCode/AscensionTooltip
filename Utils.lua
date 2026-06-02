@@ -1,37 +1,24 @@
 -------------------------------------------------------------------------------
--- Project: Ascension Tooltip
+-- Project: AscensionTooltip
 -- Author: Aka-DoctorCode
 -- File: Utils.lua
--- Version: V23
 -------------------------------------------------------------------------------
--- Copyright (c) 2025–2026 Aka-DoctorCode. All Rights Reserved.
---
--- This software and its source code are the exclusive property of the author.
--- No part of this file may be copied, modified, redistributed, or used in
--- derivative works without express written permission.
--------------------------------------------------------------------------------
+---@diagnostic disable: undefined-global, undefined-doc-name, inject-field
 
 local addonName = ...
 
----@class AT : AceAddon
 local AT = LibStub("AceAddon-3.0"):GetAddon(addonName) ---@type AT
 
 -------------------------------------------------------------------------------
 -- UTILITY FUNCTIONS
 -------------------------------------------------------------------------------
 
----@param r number?
----@param g number?
----@param b number?
----@return string
 function AT:rgbToHex(r, g, b)
     -- Format: |cffRRGGBB
     return string.format("|cff%02x%02x%02x", math.floor((r or 1) * 255), math.floor((g or 1) * 255),
         math.floor((b or 1) * 255))
 end
 
----@param str string?
----@return string?
 function AT:urlEncode(str)
     if not str then return nil end
 
@@ -44,9 +31,6 @@ function AT:urlEncode(str)
     return encodedStr
 end
 
----@param tooltip table?
----@param textPart string?
----@return boolean
 function AT:isLineInTooltip(tooltip, textPart)
     if InCombatLockdown() or not tooltip or not textPart or textPart == "" then return false end
 
@@ -68,8 +52,6 @@ function AT:isLineInTooltip(tooltip, textPart)
     return false
 end
 
----@param spellID number|string?
----@return table?
 function AT:safeGetSpellInfo(spellID)
     if not spellID or not C_Spell then return nil end
 
@@ -82,8 +64,6 @@ function AT:safeGetSpellInfo(spellID)
 end
 
 --- Strips WoW UI color codes from a string to ensure accurate matching
----@param text string?
----@return string?
 function AT:stripColors(text)
     if not text then return nil end
     -- Removes |cffXXXXXX and |r tags
@@ -92,9 +72,6 @@ function AT:stripColors(text)
     return cleanText
 end
 
----@param talentDesc string?
----@param spellName string?
----@return boolean
 function AT:enhancedDescMatch(talentDesc, spellName)
     if not talentDesc or not spellName then return false end
 
@@ -117,8 +94,6 @@ function AT:enhancedDescMatch(talentDesc, spellName)
     return false
 end
 
----@param className string?
----@return string
 function AT:getClassColor(className)
     if not className then return "ffffff" end -- #ffffff
 
@@ -130,8 +105,6 @@ function AT:getClassColor(className)
     return "ffffff" -- #ffffff
 end
 
----@param itemID number?
----@return table?
 function AT:safeGetItemInfo(itemID)
     if not itemID then return nil end
 
