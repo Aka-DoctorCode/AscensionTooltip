@@ -11,7 +11,7 @@
 ## X-Wago-ID: b6mvV4KP
 
 # Modules
-Core.lua
-Utils.lua
-Data.lua
-Config.lua
+Core/Core.lua
+Core/Utils.lua
+Core/Data.lua
+Config/Config.lua
