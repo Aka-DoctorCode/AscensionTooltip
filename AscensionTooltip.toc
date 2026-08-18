@@ -1,4 +1,4 @@
-## Interface: 120007
+## Interface: 120100
 ## Title: Ascension Tooltip
 ## Notes: Enhanced WOW Tooltips - Show all modifier for abilities and tooltip size modifier.
 ## Author: AkaDoctorCode
